@@ -1,7 +1,14 @@
 {% extends 'admin/base_admin.html' %}
 {% block title %}Dashboard - Music Pro Bodega{% endblock %}
 {% block content %}
-<h4 class="mb-4 fw-bold">Dashboard</h4>
+
+{% if rol == 'Administrador' %}
+<h4 class="mb-1 fw-bold">Dashboard Administrador</h4>
+<p class="text-muted small mb-4">Gestión de inventario, usuarios y autorización de pedidos</p>
+{% else %}
+<h4 class="mb-1 fw-bold">Dashboard Operacional</h4>
+<p class="text-muted small mb-4">Registro de ingresos, salidas y consulta de stock</p>
+{% endif %}
 
 <div class="row g-3 mb-4">
     <div class="col-6 col-md-3">
@@ -62,5 +69,54 @@
 </div>
 {% endif %}
 
-<div class="text-muted small">Sesión iniciada como <strong>{{ nombre }}</strong> ({{ rol }})</div>
+{% if rol == 'Administrador' %}
+<div class="row g-3">
+    <div class="col-md-4">
+        <div class="card p-3 h-100">
+            <h6 class="fw-semibold"><i class="bi bi-boxes me-2 text-primary"></i>Gestionar inventario</h6>
+            <p class="text-muted small mb-2">Productos, categorías, stock y alertas.</p>
+            <a href="{% url 'productos_list' %}" class="btn btn-sm btn-blue">Ir a productos</a>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-3 h-100">
+            <h6 class="fw-semibold"><i class="bi bi-people me-2 text-primary"></i>Mantenedor de usuarios</h6>
+            <p class="text-muted small mb-2">Crear, listar, editar rol/estado y eliminar.</p>
+            <a href="{% url 'usuarios_list' %}" class="btn btn-sm btn-blue">Ir a usuarios</a>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-3 h-100">
+            <h6 class="fw-semibold"><i class="bi bi-truck me-2 text-primary"></i>Solicitudes de pedidos</h6>
+            <p class="text-muted small mb-2">Revisar y autorizar salidas hacia sucursales.</p>
+            <a href="{% url 'salidas_list' %}" class="btn btn-sm btn-blue">Ver solicitudes</a>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="row g-3">
+    <div class="col-md-4">
+        <div class="card p-3 h-100">
+            <h6 class="fw-semibold"><i class="bi bi-box-arrow-in-down me-2 text-primary"></i>Registrar ingreso</h6>
+            <p class="text-muted small mb-2">Ingreso de mercadería a la bodega.</p>
+            <a href="{% url 'ingresos_list' %}" class="btn btn-sm btn-blue">Ver ingresos</a>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-3 h-100">
+            <h6 class="fw-semibold"><i class="bi bi-box-arrow-up me-2 text-primary"></i>Registrar salida / envío</h6>
+            <p class="text-muted small mb-2">Despacho hacia sucursales o franquicias.</p>
+            <a href="{% url 'salidas_list' %}" class="btn btn-sm btn-blue">Ver salidas</a>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-3 h-100">
+            <h6 class="fw-semibold"><i class="bi bi-clipboard-data me-2 text-primary"></i>Consultar inventario</h6>
+            <p class="text-muted small mb-2">Stock y ubicación de productos.</p>
+            <a href="{% url 'stock' %}" class="btn btn-sm btn-blue">Consultar stock</a>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {% endblock %}

@@ -58,7 +58,7 @@ def login_view(request):
 def logout_view(request):
     request.session.flush()
     messages.info(request, 'Sesión cerrada correctamente.')
-    return redirect('login')
+    return redirect('index')
 
 
 @login_required

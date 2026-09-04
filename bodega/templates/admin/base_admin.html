@@ -31,6 +31,12 @@
                 <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">
                     <i class="bi bi-speedometer2 me-2"></i>Dashboard
                 </a>
+
+                {% if request.session.rol == 'Administrador' %}
+                {# --- MENÚ ADMINISTRADOR (según diagrama de flujo) --- #}
+                <div class="px-3 pt-3 pb-1">
+                    <small class="text-muted text-uppercase fw-semibold" style="font-size:0.7rem;">Inventario y stock</small>
+                </div>
                 <a class="nav-link {% if 'producto' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'productos_list' %}">
                     <i class="bi bi-box me-2"></i>Productos
                 </a>
@@ -38,21 +44,45 @@
                     <i class="bi bi-tags me-2"></i>Categorías
                 </a>
                 <a class="nav-link {% if request.resolver_match.url_name == 'stock' %}active{% endif %}" href="{% url 'stock' %}">
-                    <i class="bi bi-clipboard-data me-2"></i>Stock
+                    <i class="bi bi-clipboard-data me-2"></i>Consultar stock
                 </a>
                 <a class="nav-link {% if request.resolver_match.url_name == 'alertas' %}active{% endif %}" href="{% url 'alertas' %}">
                     <i class="bi bi-bell me-2"></i>Alertas
                 </a>
+
+                <div class="px-3 pt-3 pb-1">
+                    <small class="text-muted text-uppercase fw-semibold" style="font-size:0.7rem;">Usuarios</small>
+                </div>
+                <a class="nav-link {% if request.resolver_match.url_name == 'usuarios_list' %}active{% endif %}" href="{% url 'usuarios_list' %}">
+                    <i class="bi bi-people me-2"></i>Mantenedor de usuarios
+                </a>
+
+                <div class="px-3 pt-3 pb-1">
+                    <small class="text-muted text-uppercase fw-semibold" style="font-size:0.7rem;">Pedidos</small>
+                </div>
+                <a class="nav-link {% if request.resolver_match.url_name == 'salidas_list' %}active{% endif %}" href="{% url 'salidas_list' %}">
+                    <i class="bi bi-truck me-2"></i>Solicitudes de pedidos
+                </a>
                 <a class="nav-link {% if request.resolver_match.url_name == 'ingresos_list' %}active{% endif %}" href="{% url 'ingresos_list' %}">
                     <i class="bi bi-box-arrow-in-down me-2"></i>Ingresos
                 </a>
-                <a class="nav-link {% if request.resolver_match.url_name == 'salidas_list' %}active{% endif %}" href="{% url 'salidas_list' %}">
-                    <i class="bi bi-box-arrow-up me-2"></i>Salidas
+
+                {% else %}
+                {# --- MENÚ OPERADOR (según diagrama de flujo) --- #}
+                <div class="px-3 pt-3 pb-1">
+                    <small class="text-muted text-uppercase fw-semibold" style="font-size:0.7rem;">Operaciones</small>
+                </div>
+                <a class="nav-link {% if request.resolver_match.url_name == 'ingresos_list' %}active{% endif %}" href="{% url 'ingresos_list' %}">
+                    <i class="bi bi-box-arrow-in-down me-2"></i>Registrar ingreso
                 </a>
-                {% if request.session.rol == 'Administrador' %}
-                <hr class="my-2">
-                <a class="nav-link {% if request.resolver_match.url_name == 'usuarios_list' %}active{% endif %}" href="{% url 'usuarios_list' %}">
-                    <i class="bi bi-people me-2"></i>Usuarios
+                <a class="nav-link {% if request.resolver_match.url_name == 'salidas_list' %}active{% endif %}" href="{% url 'salidas_list' %}">
+                    <i class="bi bi-box-arrow-up me-2"></i>Registrar salida / envío
+                </a>
+                <a class="nav-link {% if request.resolver_match.url_name == 'stock' or 'producto' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'stock' %}">
+                    <i class="bi bi-clipboard-data me-2"></i>Consultar inventario y stock
+                </a>
+                <a class="nav-link {% if request.resolver_match.url_name == 'alertas' %}active{% endif %}" href="{% url 'alertas' %}">
+                    <i class="bi bi-bell me-2"></i>Alertas de stock
                 </a>
                 {% endif %}
             </nav>
