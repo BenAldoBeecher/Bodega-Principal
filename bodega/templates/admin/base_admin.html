@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% block body %}
+<nav class="navbar navbar-expand-lg bg-blue navbar-dark">
+    <div class="container-fluid px-3">
+        <a class="navbar-brand" href="{% url 'dashboard' %}">
+            <i class="bi bi-box-seam me-2"></i>Music Pro Bodega
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navMain">
+            <ul class="navbar-nav ms-auto align-items-lg-center">
+                <li class="nav-item me-3">
+                    <span class="text-white-50 small">
+                        <i class="bi bi-person-circle me-1"></i>{{ request.session.nombre }}
+                        <span class="badge bg-light text-dark ms-1">{{ request.session.rol }}</span>
+                    </span>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'logout' %}" class="btn btn-outline-light btn-sm">Salir</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-lg-2 col-md-3 sidebar py-3">
+            <nav class="nav flex-column">
+                <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">
+                    <i class="bi bi-speedometer2 me-2"></i>Dashboard
+                </a>
+                <a class="nav-link {% if 'producto' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'productos_list' %}">
+                    <i class="bi bi-box me-2"></i>Productos
+                </a>
+                <a class="nav-link {% if request.resolver_match.url_name == 'categorias_list' %}active{% endif %}" href="{% url 'categorias_list' %}">
+                    <i class="bi bi-tags me-2"></i>Categorías
+                </a>
+                <a class="nav-link {% if request.resolver_match.url_name == 'stock' %}active{% endif %}" href="{% url 'stock' %}">
+                    <i class="bi bi-clipboard-data me-2"></i>Stock
+                </a>
+                <a class="nav-link {% if request.resolver_match.url_name == 'alertas' %}active{% endif %}" href="{% url 'alertas' %}">
+                    <i class="bi bi-bell me-2"></i>Alertas
+                </a>
+                <a class="nav-link {% if request.resolver_match.url_name == 'ingresos_list' %}active{% endif %}" href="{% url 'ingresos_list' %}">
+                    <i class="bi bi-box-arrow-in-down me-2"></i>Ingresos
+                </a>
+                <a class="nav-link {% if request.resolver_match.url_name == 'salidas_list' %}active{% endif %}" href="{% url 'salidas_list' %}">
+                    <i class="bi bi-box-arrow-up me-2"></i>Salidas
+                </a>
+                {% if request.session.rol == 'Administrador' %}
+                <hr class="my-2">
+                <a class="nav-link {% if request.resolver_match.url_name == 'usuarios_list' %}active{% endif %}" href="{% url 'usuarios_list' %}">
+                    <i class="bi bi-people me-2"></i>Usuarios
+                </a>
+                {% endif %}
+            </nav>
+        </div>
+
+        <div class="col-lg-10 col-md-9 py-4 px-4">
+            {% if messages %}
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show py-2" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+</div>
+{% endblock %}

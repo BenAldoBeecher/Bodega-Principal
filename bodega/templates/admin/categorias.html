@@ -1,0 +1,27 @@
+{% extends 'admin/base_admin.html' %}
+{% block title %}Categorías - Music Pro Bodega{% endblock %}
+{% block content %}
+<h4 class="mb-4 fw-bold">Categorías</h4>
+<div class="card">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nombre</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in categorias %}
+                <tr>
+                    <td>{{ c.id }}</td>
+                    <td class="fw-semibold">{{ c.nombre }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="2" class="text-center text-muted py-4">Sin categorías</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

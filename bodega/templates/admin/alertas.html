@@ -1,0 +1,37 @@
+{% extends 'admin/base_admin.html' %}
+{% block title %}Alertas - Music Pro Bodega{% endblock %}
+{% block content %}
+<h4 class="mb-4 fw-bold">Alertas de Stock Mínimo</h4>
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Producto</th>
+                        <th>Categoría</th>
+                        <th>Stock</th>
+                        <th>Mínimo</th>
+                        <th>Ubicación</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in alertas %}
+                    <tr>
+                        <td class="fw-semibold">{{ p.codigo }}</td>
+                        <td>{{ p.nombre }}</td>
+                        <td>{{ p.categoria_nombre }}</td>
+                        <td><span class="badge badge-alerta">{{ p.stock }}</span></td>
+                        <td>{{ p.stock_minimo }}</td>
+                        <td class="small text-muted">{{ p.ubicacion_nombre }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center text-muted py-4">No hay productos con stock bajo</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

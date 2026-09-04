@@ -1,0 +1,45 @@
+{% extends 'admin/base_admin.html' %}
+{% block title %}Usuarios - Music Pro Bodega{% endblock %}
+{% block content %}
+<h4 class="mb-4 fw-bold">Usuarios</h4>
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Email</th>
+                        <th>Rol</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in usuarios %}
+                    <tr>
+                        <td class="fw-semibold">{{ u.nombre }}</td>
+                        <td>{{ u.email }}</td>
+                        <td>
+                            {% if u.rol == 'Administrador' %}
+                            <span class="badge bg-primary">{{ u.rol }}</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ u.rol }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if u.estado == 'activo' %}
+                            <span class="badge badge-ok">Activo</span>
+                            {% else %}
+                            <span class="badge badge-alerta">Inactivo</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" class="text-center text-muted py-4">Sin usuarios</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}Music Pro - Bodega Principal{% endblock %}
+{% block body %}
+<nav class="navbar navbar-expand-lg bg-blue navbar-dark">
+    <div class="container">
+        <a class="navbar-brand" href="{% url 'index' %}">
+            <i class="bi bi-box-seam me-2"></i>Music Pro Bodega
+        </a>
+        <a href="{% url 'login' %}" class="btn btn-light btn-sm px-3">Ingresar</a>
+    </div>
+</nav>
+
+<section class="py-5">
+    <div class="container text-center py-5">
+        <h1 class="display-5 fw-bold mb-3" style="color:#1e4d8c;">Bodega Principal</h1>
+        <p class="lead text-muted mb-4 col-lg-6 mx-auto">
+            Sistema de gestión de inventario, ingresos y salidas de productos para Music Pro.
+        </p>
+        <a href="{% url 'login' %}" class="btn btn-blue btn-lg px-4">
+            <i class="bi bi-box-arrow-in-right me-2"></i>Acceder al sistema
+        </a>
+    </div>
+</section>
+
+<section class="py-4 bg-white border-top">
+    <div class="container">
+        <div class="row g-4 text-center">
+            <div class="col-md-4">
+                <div class="p-3">
+                    <i class="bi bi-boxes fs-2 text-primary mb-2"></i>
+                    <h5>Control de Stock</h5>
+                    <p class="text-muted small mb-0">Consulta y gestiona el inventario en tiempo real.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="p-3">
+                    <i class="bi bi-arrow-left-right fs-2 text-primary mb-2"></i>
+                    <h5>Ingresos y Salidas</h5>
+                    <p class="text-muted small mb-0">Registra movimientos con trazabilidad completa.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="p-3">
+                    <i class="bi bi-bell fs-2 text-primary mb-2"></i>
+                    <h5>Alertas de Stock</h5>
+                    <p class="text-muted small mb-0">Notificaciones cuando un producto llega al mínimo.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<footer class="py-4 text-center">
+    <div class="container">Music Pro S.A. &copy; 2026 — Bodega Principal</div>
+</footer>
+{% endblock %}

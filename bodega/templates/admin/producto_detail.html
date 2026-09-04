@@ -1,0 +1,43 @@
+{% extends 'admin/base_admin.html' %}
+{% block title %}{{ producto.nombre }} - Music Pro Bodega{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="fw-bold mb-0">{{ producto.nombre }}</h4>
+    <a href="{% url 'productos_list' %}" class="btn btn-sm btn-outline-secondary">Volver</a>
+</div>
+<div class="card p-4">
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="text-muted small">Código</div>
+            <div class="fw-semibold">{{ producto.codigo }}</div>
+        </div>
+        <div class="col-md-6">
+            <div class="text-muted small">Categoría</div>
+            <div class="fw-semibold">{{ producto.categoria_nombre }}</div>
+        </div>
+        <div class="col-md-6">
+            <div class="text-muted small">Stock actual</div>
+            <div class="fw-semibold">{{ producto.stock }}</div>
+        </div>
+        <div class="col-md-6">
+            <div class="text-muted small">Stock mínimo</div>
+            <div class="fw-semibold">{{ producto.stock_minimo }}</div>
+        </div>
+        <div class="col-md-6">
+            <div class="text-muted small">Ubicación</div>
+            <div class="fw-semibold">{{ producto.ubicacion_nombre }}</div>
+        </div>
+        <div class="col-md-6">
+            <div class="text-muted small">Precio</div>
+            <div class="fw-semibold">${{ producto.precio }}</div>
+        </div>
+        <div class="col-12">
+            {% if producto.alerta %}
+            <div class="alert alert-warning py-2 mb-0">
+                <i class="bi bi-exclamation-triangle me-1"></i> Este producto tiene stock bajo el mínimo.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

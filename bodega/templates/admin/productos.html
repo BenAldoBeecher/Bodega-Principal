@@ -1,0 +1,47 @@
+{% extends 'admin/base_admin.html' %}
+{% block title %}Productos - Music Pro Bodega{% endblock %}
+{% block content %}
+<h4 class="mb-4 fw-bold">Productos</h4>
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Nombre</th>
+                        <th>Categoría</th>
+                        <th>Stock</th>
+                        <th>Ubicación</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in productos %}
+                    <tr>
+                        <td class="fw-semibold">{{ p.codigo }}</td>
+                        <td>{{ p.nombre }}</td>
+                        <td>{{ p.categoria_nombre }}</td>
+                        <td>{{ p.stock }}</td>
+                        <td class="small text-muted">{{ p.ubicacion_nombre }}</td>
+                        <td>
+                            {% if p.alerta %}
+                            <span class="badge badge-alerta">Bajo</span>
+                            {% else %}
+                            <span class="badge badge-ok">OK</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'producto_detail' p.id %}" class="btn btn-sm btn-outline-primary">Ver</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" class="text-center text-muted py-4">Sin productos</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
