@@ -1,0 +1,50 @@
+{% extends 'admin/base_admin.html' %}
+{% block title %}Revisar solicitud #{{ salida.id }} - Music Pro Bodega{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="fw-bold mb-0">Revisar solicitud de pedido</h4>
+    <a href="{% url 'salidas_list' %}" class="btn btn-sm btn-outline-secondary">Volver</a>
+</div>
+
+<div class="card p-4 col-lg-7">
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="text-muted small">ID solicitud</div>
+            <div class="fw-semibold">#{{ salida.id }}</div>
+        </div>
+        <div class="col-md-6">
+            <div class="text-muted small">Fecha</div>
+            <div class="fw-semibold">{{ salida.fecha }}</div>
+        </div>
+        <div class="col-md-6">
+            <div class="text-muted small">Destino</div>
+            <div class="fw-semibold">{{ salida.destino }}</div>
+        </div>
+        <div class="col-md-6">
+            <div class="text-muted small">Registrado por</div>
+            <div class="fw-semibold">{{ salida.usuario_nombre }}</div>
+        </div>
+        <div class="col-12">
+            <div class="text-muted small">Observación</div>
+            <div>{{ salida.observacion|default:"—" }}</div>
+        </div>
+        <div class="col-12">
+            <div class="text-muted small">Estado actual</div>
+            <span class="badge bg-warning text-dark">Pendiente de autorización</span>
+        </div>
+    </div>
+
+    <p class="text-muted small mb-3">Como Administrador puedes autorizar o rechazar esta solicitud. En la Evaluación 2 esta acción actualizará el stock y el estado en base de datos.</p>
+
+    <form method="post" class="d-flex gap-2 flex-wrap">
+        {% csrf_token %}
+        <button type="submit" name="accion" value="autorizar" class="btn btn-blue">
+            <i class="bi bi-check-lg me-1"></i>Autorizar
+        </button>
+        <button type="submit" name="accion" value="rechazar" class="btn btn-outline-danger">
+            <i class="bi bi-x-lg me-1"></i>Rechazar
+        </button>
+        <a href="{% url 'salidas_list' %}" class="btn btn-outline-secondary">Cancelar</a>
+    </form>
+</div>
+{% endblock %}

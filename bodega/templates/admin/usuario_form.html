@@ -1,0 +1,58 @@
+{% extends 'admin/base_admin.html' %}
+{% block title %}{{ titulo }} - Music Pro Bodega{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="fw-bold mb-0">{{ titulo }}</h4>
+    <a href="{% url 'usuarios_list' %}" class="btn btn-sm btn-outline-secondary">Volver</a>
+</div>
+
+<div class="card p-4 col-lg-6">
+    <form method="post">
+        {% csrf_token %}
+
+        {% if accion == 'crear' %}
+        <div class="mb-3">
+            <label class="form-label small fw-semibold">Nombre completo</label>
+            <input type="text" name="nombre" class="form-control" required placeholder="Ej: Nombre Apellido">
+        </div>
+        <div class="mb-3">
+            <label class="form-label small fw-semibold">Correo electrónico</label>
+            <input type="email" name="email" class="form-control" required placeholder="usuario@musicpro.cl">
+        </div>
+        <div class="mb-3">
+            <label class="form-label small fw-semibold">Contraseña temporal</label>
+            <input type="text" name="password" class="form-control" value="operador123" readonly>
+            <div class="form-text">Se asignará una contraseña temporal. El usuario podrá cambiarla después.</div>
+        </div>
+        {% else %}
+        <div class="mb-3">
+            <label class="form-label small fw-semibold">Usuario</label>
+            <input type="text" class="form-control" value="{{ usuario.nombre }} ({{ usuario.email }})" disabled>
+        </div>
+        {% endif %}
+
+        <div class="mb-3">
+            <label class="form-label small fw-semibold">Rol</label>
+            <select name="rol" class="form-select">
+                <option value="Operador" {% if usuario.rol == 'Operador' %}selected{% endif %}>Operador</option>
+                <option value="Administrador" {% if usuario.rol == 'Administrador' %}selected{% endif %}>Administrador</option>
+            </select>
+        </div>
+
+        {% if accion == 'editar' %}
+        <div class="mb-3">
+            <label class="form-label small fw-semibold">Estado</label>
+            <select name="estado" class="form-select">
+                <option value="activo" {% if usuario.estado == 'activo' %}selected{% endif %}>Activo</option>
+                <option value="inactivo" {% if usuario.estado == 'inactivo' %}selected{% endif %}>Inactivo</option>
+            </select>
+        </div>
+        {% endif %}
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-blue">Guardar</button>
+            <a href="{% url 'usuarios_list' %}" class="btn btn-outline-secondary">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

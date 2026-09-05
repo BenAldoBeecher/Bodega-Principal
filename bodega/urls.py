@@ -19,10 +19,19 @@ urlpatterns = [
 
     # Usuarios (solo admin)
     path('usuarios/', views.usuarios_list, name='usuarios_list'),
+    path('usuarios/crear/', views.usuario_crear, name='usuario_crear'),
+    path('usuarios/<int:pk>/', views.usuario_detail, name='usuario_detail'),
+    path('usuarios/<int:pk>/editar/', views.usuario_editar, name='usuario_editar'),
+    path('usuarios/<int:pk>/eliminar/', views.usuario_eliminar, name='usuario_eliminar'),
 
-    # Ingresos y Salidas
+    # Ingresos
     path('ingresos/', views.ingresos_list, name='ingresos_list'),
+    path('ingresos/registrar/', views.ingreso_registrar, name='ingreso_registrar'),
+
+    # Salidas / Solicitudes de pedidos
     path('salidas/', views.salidas_list, name='salidas_list'),
+    path('salidas/registrar/', views.salida_registrar, name='salida_registrar'),
+    path('salidas/<int:pk>/autorizar/', views.salida_autorizar, name='salida_autorizar'),
 
     # Alertas y Stock
     path('alertas/', views.alertas, name='alertas'),

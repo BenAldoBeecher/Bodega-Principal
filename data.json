@@ -42,59 +42,291 @@
     }
   ],
   "categorias": [
-    {"id": 1, "nombre": "Guitarras"},
-    {"id": 2, "nombre": "Bajos"},
-    {"id": 3, "nombre": "Baterías"},
-    {"id": 4, "nombre": "Teclados"},
-    {"id": 5, "nombre": "Audio Profesional"},
-    {"id": 6, "nombre": "Accesorios"}
+    {
+      "id": 1,
+      "nombre": "Guitarras"
+    },
+    {
+      "id": 2,
+      "nombre": "Bajos"
+    },
+    {
+      "id": 3,
+      "nombre": "Baterías"
+    },
+    {
+      "id": 4,
+      "nombre": "Teclados"
+    },
+    {
+      "id": 5,
+      "nombre": "Audio Profesional"
+    },
+    {
+      "id": 6,
+      "nombre": "Accesorios"
+    }
   ],
   "ubicaciones": [
-    {"id": 1, "nombre": "Pasillo A - Estante 1", "codigo": "A-01"},
-    {"id": 2, "nombre": "Pasillo A - Estante 2", "codigo": "A-02"},
-    {"id": 3, "nombre": "Pasillo B - Estante 1", "codigo": "B-01"},
-    {"id": 4, "nombre": "Pasillo B - Estante 2", "codigo": "B-02"},
-    {"id": 5, "nombre": "Zona de Despacho", "codigo": "Z-D"},
-    {"id": 6, "nombre": "Área de Recepción", "codigo": "Z-R"}
+    {
+      "id": 1,
+      "nombre": "Pasillo A - Estante 1",
+      "codigo": "A-01"
+    },
+    {
+      "id": 2,
+      "nombre": "Pasillo A - Estante 2",
+      "codigo": "A-02"
+    },
+    {
+      "id": 3,
+      "nombre": "Pasillo B - Estante 1",
+      "codigo": "B-01"
+    },
+    {
+      "id": 4,
+      "nombre": "Pasillo B - Estante 2",
+      "codigo": "B-02"
+    },
+    {
+      "id": 5,
+      "nombre": "Zona de Despacho",
+      "codigo": "Z-D"
+    },
+    {
+      "id": 6,
+      "nombre": "Área de Recepción",
+      "codigo": "Z-R"
+    }
   ],
   "productos": [
-    {"id": 1, "codigo": "GUI-001", "nombre": "Fender Stratocaster Player", "categoria_id": 1, "stock": 12, "stock_minimo": 5, "ubicacion_id": 1, "precio": 899990},
-    {"id": 2, "codigo": "GUI-002", "nombre": "Gibson Les Paul Standard", "categoria_id": 1, "stock": 4, "stock_minimo": 3, "ubicacion_id": 1, "precio": 2499990},
-    {"id": 3, "codigo": "BAJ-001", "nombre": "Fender Jazz Bass", "categoria_id": 2, "stock": 8, "stock_minimo": 4, "ubicacion_id": 2, "precio": 1099990},
-    {"id": 4, "codigo": "BAT-001", "nombre": "Pearl Export Series", "categoria_id": 3, "stock": 3, "stock_minimo": 2, "ubicacion_id": 3, "precio": 1299990},
-    {"id": 5, "codigo": "TEC-001", "nombre": "Yamaha P-125", "categoria_id": 4, "stock": 6, "stock_minimo": 3, "ubicacion_id": 4, "precio": 799990},
-    {"id": 6, "codigo": "AUD-001", "nombre": "Shure SM58", "categoria_id": 5, "stock": 25, "stock_minimo": 10, "ubicacion_id": 5, "precio": 119990},
-    {"id": 7, "codigo": "AUD-002", "nombre": "Focusrite Scarlett 2i2", "categoria_id": 5, "stock": 15, "stock_minimo": 5, "ubicacion_id": 5, "precio": 189990},
-    {"id": 8, "codigo": "ACC-001", "nombre": "Cable Instrumento 3m", "categoria_id": 6, "stock": 50, "stock_minimo": 20, "ubicacion_id": 6, "precio": 12990},
-    {"id": 9, "codigo": "GUI-003", "nombre": "Ibanez RG550", "categoria_id": 1, "stock": 2, "stock_minimo": 3, "ubicacion_id": 1, "precio": 1199990},
-    {"id": 10, "codigo": "BAJ-002", "nombre": "Music Man StingRay", "categoria_id": 2, "stock": 5, "stock_minimo": 2, "ubicacion_id": 2, "precio": 1899990},
-    {"id": 11, "codigo": "TEC-002", "nombre": "Roland FP-30X", "categoria_id": 4, "stock": 4, "stock_minimo": 2, "ubicacion_id": 4, "precio": 999990},
-    {"id": 12, "codigo": "AUD-003", "nombre": "KRK Rokit 5 G4", "categoria_id": 5, "stock": 10, "stock_minimo": 4, "ubicacion_id": 5, "precio": 349990}
+    {
+      "id": 1,
+      "codigo": "GUI-001",
+      "nombre": "Fender Stratocaster Player",
+      "categoria_id": 1,
+      "stock": 12,
+      "stock_minimo": 5,
+      "ubicacion_id": 1,
+      "precio": 899990
+    },
+    {
+      "id": 2,
+      "codigo": "GUI-002",
+      "nombre": "Gibson Les Paul Standard",
+      "categoria_id": 1,
+      "stock": 4,
+      "stock_minimo": 3,
+      "ubicacion_id": 1,
+      "precio": 2499990
+    },
+    {
+      "id": 3,
+      "codigo": "BAJ-001",
+      "nombre": "Fender Jazz Bass",
+      "categoria_id": 2,
+      "stock": 8,
+      "stock_minimo": 4,
+      "ubicacion_id": 2,
+      "precio": 1099990
+    },
+    {
+      "id": 4,
+      "codigo": "BAT-001",
+      "nombre": "Pearl Export Series",
+      "categoria_id": 3,
+      "stock": 3,
+      "stock_minimo": 2,
+      "ubicacion_id": 3,
+      "precio": 1299990
+    },
+    {
+      "id": 5,
+      "codigo": "TEC-001",
+      "nombre": "Yamaha P-125",
+      "categoria_id": 4,
+      "stock": 6,
+      "stock_minimo": 3,
+      "ubicacion_id": 4,
+      "precio": 799990
+    },
+    {
+      "id": 6,
+      "codigo": "AUD-001",
+      "nombre": "Shure SM58",
+      "categoria_id": 5,
+      "stock": 25,
+      "stock_minimo": 10,
+      "ubicacion_id": 5,
+      "precio": 119990
+    },
+    {
+      "id": 7,
+      "codigo": "AUD-002",
+      "nombre": "Focusrite Scarlett 2i2",
+      "categoria_id": 5,
+      "stock": 15,
+      "stock_minimo": 5,
+      "ubicacion_id": 5,
+      "precio": 189990
+    },
+    {
+      "id": 8,
+      "codigo": "ACC-001",
+      "nombre": "Cable Instrumento 3m",
+      "categoria_id": 6,
+      "stock": 50,
+      "stock_minimo": 20,
+      "ubicacion_id": 6,
+      "precio": 12990
+    },
+    {
+      "id": 9,
+      "codigo": "GUI-003",
+      "nombre": "Ibanez RG550",
+      "categoria_id": 1,
+      "stock": 2,
+      "stock_minimo": 3,
+      "ubicacion_id": 1,
+      "precio": 1199990
+    },
+    {
+      "id": 10,
+      "codigo": "BAJ-002",
+      "nombre": "Music Man StingRay",
+      "categoria_id": 2,
+      "stock": 5,
+      "stock_minimo": 2,
+      "ubicacion_id": 2,
+      "precio": 1899990
+    },
+    {
+      "id": 11,
+      "codigo": "TEC-002",
+      "nombre": "Roland FP-30X",
+      "categoria_id": 4,
+      "stock": 4,
+      "stock_minimo": 2,
+      "ubicacion_id": 4,
+      "precio": 999990
+    },
+    {
+      "id": 12,
+      "codigo": "AUD-003",
+      "nombre": "KRK Rokit 5 G4",
+      "categoria_id": 5,
+      "stock": 10,
+      "stock_minimo": 4,
+      "ubicacion_id": 5,
+      "precio": 349990
+    }
   ],
   "proveedores": [
-    {"id": 1, "nombre": "Fender Musical Instruments", "contacto": "contacto@fender.com"},
-    {"id": 2, "nombre": "Gibson Brands", "contacto": "latam@gibson.com"},
-    {"id": 3, "nombre": "Yamaha Music Chile", "contacto": "ventas@yamaha.cl"},
-    {"id": 4, "nombre": "Audio Pro Distribuciones", "contacto": "info@audiopro.cl"}
+    {
+      "id": 1,
+      "nombre": "Fender Musical Instruments",
+      "contacto": "contacto@fender.com"
+    },
+    {
+      "id": 2,
+      "nombre": "Gibson Brands",
+      "contacto": "latam@gibson.com"
+    },
+    {
+      "id": 3,
+      "nombre": "Yamaha Music Chile",
+      "contacto": "ventas@yamaha.cl"
+    },
+    {
+      "id": 4,
+      "nombre": "Audio Pro Distribuciones",
+      "contacto": "info@audiopro.cl"
+    }
   ],
   "ingresos": [
-    {"id": 1, "fecha": "2026-08-20", "proveedor_id": 1, "usuario_id": 2, "observacion": "Ingreso regular de guitarras"},
-    {"id": 2, "fecha": "2026-08-25", "proveedor_id": 3, "usuario_id": 3, "observacion": "Reposición de teclados y audio"}
+    {
+      "id": 1,
+      "fecha": "2026-08-20",
+      "proveedor_id": 1,
+      "usuario_id": 2,
+      "observacion": "Ingreso regular de guitarras"
+    },
+    {
+      "id": 2,
+      "fecha": "2026-08-25",
+      "proveedor_id": 3,
+      "usuario_id": 3,
+      "observacion": "Reposición de teclados y audio"
+    }
   ],
   "detalles_ingreso": [
-    {"id": 1, "ingreso_id": 1, "producto_id": 1, "cantidad": 5},
-    {"id": 2, "ingreso_id": 1, "producto_id": 3, "cantidad": 3},
-    {"id": 3, "ingreso_id": 2, "producto_id": 5, "cantidad": 4},
-    {"id": 4, "ingreso_id": 2, "producto_id": 6, "cantidad": 10}
+    {
+      "id": 1,
+      "ingreso_id": 1,
+      "producto_id": 1,
+      "cantidad": 5
+    },
+    {
+      "id": 2,
+      "ingreso_id": 1,
+      "producto_id": 3,
+      "cantidad": 3
+    },
+    {
+      "id": 3,
+      "ingreso_id": 2,
+      "producto_id": 5,
+      "cantidad": 4
+    },
+    {
+      "id": 4,
+      "ingreso_id": 2,
+      "producto_id": 6,
+      "cantidad": 10
+    }
   ],
   "salidas": [
-    {"id": 1, "fecha": "2026-08-28", "destino": "Sucursal Providencia", "usuario_id": 4, "observacion": "Despacho semanal"},
-    {"id": 2, "fecha": "2026-08-30", "destino": "Sucursal del Rock", "usuario_id": 5, "observacion": "Pedido urgente"}
+    {
+      "id": 1,
+      "fecha": "2026-08-28",
+      "destino": "Sucursal Providencia",
+      "usuario_id": 4,
+      "observacion": "Despacho semanal",
+      "estado": "autorizada"
+    },
+    {
+      "id": 2,
+      "fecha": "2026-08-30",
+      "destino": "Sucursal del Rock",
+      "usuario_id": 5,
+      "observacion": "Pedido urgente",
+      "estado": "pendiente"
+    }
   ],
   "detalles_salida": [
-    {"id": 1, "salida_id": 1, "producto_id": 1, "cantidad": 2},
-    {"id": 2, "salida_id": 1, "producto_id": 6, "cantidad": 5},
-    {"id": 3, "salida_id": 2, "producto_id": 2, "cantidad": 1},
-    {"id": 4, "salida_id": 2, "producto_id": 9, "cantidad": 1}
+    {
+      "id": 1,
+      "salida_id": 1,
+      "producto_id": 1,
+      "cantidad": 2
+    },
+    {
+      "id": 2,
+      "salida_id": 1,
+      "producto_id": 6,
+      "cantidad": 5
+    },
+    {
+      "id": 3,
+      "salida_id": 2,
+      "producto_id": 2,
+      "cantidad": 1
+    },
+    {
+      "id": 4,
+      "salida_id": 2,
+      "producto_id": 9,
+      "cantidad": 1
+    }
   ]
 }

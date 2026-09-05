@@ -72,10 +72,10 @@
                 <div class="px-3 pt-3 pb-1">
                     <small class="text-muted text-uppercase fw-semibold" style="font-size:0.7rem;">Operaciones</small>
                 </div>
-                <a class="nav-link {% if request.resolver_match.url_name == 'ingresos_list' %}active{% endif %}" href="{% url 'ingresos_list' %}">
+                <a class="nav-link {% if 'ingreso' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'ingreso_registrar' %}">
                     <i class="bi bi-box-arrow-in-down me-2"></i>Registrar ingreso
                 </a>
-                <a class="nav-link {% if request.resolver_match.url_name == 'salidas_list' %}active{% endif %}" href="{% url 'salidas_list' %}">
+                <a class="nav-link {% if 'salida' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'salida_registrar' %}">
                     <i class="bi bi-box-arrow-up me-2"></i>Registrar salida / envío
                 </a>
                 <a class="nav-link {% if request.resolver_match.url_name == 'stock' or 'producto' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'stock' %}">
