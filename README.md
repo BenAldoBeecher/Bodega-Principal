@@ -70,10 +70,3 @@ http://127.0.0.1:8000/
 
 ---
 
-## Notas
-
-- En la Unidad 1 los datos se cargan desde `data.json` (sin base de datos real).
-- Las acciones de crear/editar/eliminar/autorizar son simulaciones funcionales listas para conectarse a base de datos en la Evaluación 2.
-- Los comandos `makemigrations` y `migrate` quedan preparados para la Evaluación 2.
-- El logout redirige a la pantalla principal (landing).
-- No existe registro público: los usuarios los crea únicamente el Administrador.
