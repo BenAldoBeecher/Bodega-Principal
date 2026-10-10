@@ -109,6 +109,11 @@ class Salida(models.Model):
     observacion = models.TextField(blank=True)
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente')
     usuario = models.ForeignKey(Usuario, on_delete=models.PROTECT, db_column='usuario_id')
+    autorizado_por = models.ForeignKey(
+        Usuario, on_delete=models.PROTECT, null=True, blank=True,
+        related_name='salidas_autorizadas', db_column='autorizado_por_id',
+    )
+    fecha_autorizacion = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = 'salidas'
