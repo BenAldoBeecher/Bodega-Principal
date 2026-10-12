@@ -41,6 +41,10 @@ http://127.0.0.1:8000/        (aplicación)
 http://127.0.0.1:8000/admin/  (Django Admin)
 ```
 
+## Datos de prueba (Faker)
+
+python manage.py seed_bodega --cantidad [##numero]
+
 ## Roles y flujo del sistema
 
 **Administrador**
