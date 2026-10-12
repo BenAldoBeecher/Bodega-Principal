@@ -22,35 +22,24 @@ pip install -r requirements.txt
 
 2. Aplicar migraciones:
 ```
-python manage.py makemigrations
 python manage.py migrate
 ```
 
-3. Ejecutar el servidor:
+3. Crear el superusuario para entrar al Django Admin:
+```
+python manage.py createsuperuser
+```
+
+4. Ejecutar el servidor:
 ```
 python manage.py runserver
 ```
 
-4. Abrir en el navegador:
+5. Abrir en el navegador:
 ```
-http://127.0.0.1:8000/
+http://127.0.0.1:8000/        (aplicación)
+http://127.0.0.1:8000/admin/  (Django Admin)
 ```
-
----
-
-## Credenciales de acceso
-
-**Administrador**
-- Email: benjamin@musicpro.cl
-- Contraseña: admin123
-
-**Operadores**
-- adam@musicpro.cl / operador123
-- michael@musicpro.cl / operador123
-- gianluigi@musicpro.cl / operador123
-- paolo@musicpro.cl / operador123
-
----
 
 ## Roles y flujo del sistema
 

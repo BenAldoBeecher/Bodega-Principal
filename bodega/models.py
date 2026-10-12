@@ -46,7 +46,7 @@ class Usuario(models.Model):
 
     nombre = models.CharField(max_length=100)
     email = models.EmailField(max_length=150, unique=True)
-    password = models.CharField(max_length=130)  # guardar siempre el hash (make_password)
+    password = models.CharField(max_length=130)
     rol = models.CharField(max_length=20, choices=ROL_CHOICES, default='Operador')
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='activo')
 
