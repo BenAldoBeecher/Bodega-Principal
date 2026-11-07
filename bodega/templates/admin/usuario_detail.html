@@ -1,10 +1,10 @@
 {% extends 'admin/base_admin.html' %}
-{% block title %}{{ usuario.nombre }} - Music Pro Bodega{% endblock %}
+{% block title %}{{ usuario.get_full_name|default:usuario.username }} - Music Pro Bodega{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4 class="fw-bold mb-0">Detalle de usuario</h4>
     <div>
-        <a href="{% url 'usuario_editar' usuario.id %}" class="btn btn-sm btn-blue">Editar rol / estado</a>
+        <a href="{% url 'usuario_editar' usuario.id %}" class="btn btn-sm btn-blue">Editar usuario</a>
         <a href="{% url 'usuarios_list' %}" class="btn btn-sm btn-outline-secondary">Volver</a>
     </div>
 </div>
@@ -13,26 +13,26 @@
     <div class="row g-4">
         <div class="col-md-6">
             <div class="text-muted small">Nombre completo</div>
-            <div class="fw-semibold fs-5">{{ usuario.nombre }}</div>
+            <div class="fw-semibold fs-5">{{ usuario.get_full_name|default:usuario.username }}</div>
         </div>
         <div class="col-md-6">
             <div class="text-muted small">Correo electrónico</div>
-            <div class="fw-semibold">{{ usuario.email }}</div>
+            <div class="fw-semibold">{{ usuario.email|default:usuario.username }}</div>
         </div>
         <div class="col-md-6">
             <div class="text-muted small">Rol</div>
             <div>
-                {% if usuario.rol == 'Administrador' %}
-                <span class="badge bg-primary">{{ usuario.rol }}</span>
+                {% if rol_usuario == 'Administrador' %}
+                <span class="badge bg-primary">{{ rol_usuario }}</span>
                 {% else %}
-                <span class="badge bg-secondary">{{ usuario.rol }}</span>
+                <span class="badge bg-secondary">{{ rol_usuario }}</span>
                 {% endif %}
             </div>
         </div>
         <div class="col-md-6">
             <div class="text-muted small">Estado</div>
             <div>
-                {% if usuario.estado == 'activo' %}
+                {% if usuario.is_active %}
                 <span class="badge badge-ok">Activo</span>
                 {% else %}
                 <span class="badge badge-alerta">Inactivo</span>
@@ -40,8 +40,22 @@
             </div>
         </div>
         <div class="col-md-6">
+            <div class="text-muted small">Último acceso</div>
+            <div class="fw-semibold">
+                {% if usuario.last_login %}{{ usuario.last_login|date:"d-m-Y H:i" }}{% else %}Nunca{% endif %}
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="text-muted small">Fecha de creación</div>
+            <div class="fw-semibold">{{ usuario.date_joined|date:"d-m-Y H:i" }}</div>
+        </div>
+        <div class="col-md-6">
             <div class="text-muted small">ID interno</div>
             <div class="text-muted">#{{ usuario.id }}</div>
+        </div>
+        <div class="col-md-6">
+            <div class="text-muted small">Superusuario</div>
+            <div class="fw-semibold">{% if usuario.is_superuser %}Sí{% else %}No{% endif %}</div>
         </div>
     </div>
 </div>

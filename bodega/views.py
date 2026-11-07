@@ -1,62 +1,50 @@
-from django.shortcuts import render, redirect
 from django.contrib import messages
-from functools import wraps
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
+from django.db.models import Q
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.http import url_has_allowed_host_and_scheme
+
 from . import data_loader as data
-
-
-def login_required(view_func):
-    @wraps(view_func)
-    def wrapper(request, *args, **kwargs):
-        if not request.session.get('usuario_id'):
-            messages.warning(request, 'Debes iniciar sesión para continuar.')
-            return redirect('login')
-        return view_func(request, *args, **kwargs)
-    return wrapper
-
-
-def admin_required(view_func):
-    @wraps(view_func)
-    def wrapper(request, *args, **kwargs):
-        if not request.session.get('usuario_id'):
-            messages.warning(request, 'Debes iniciar sesión para continuar.')
-            return redirect('login')
-        if request.session.get('rol') != 'Administrador':
-            messages.error(request, 'No tienes permisos para acceder a esta sección.')
-            return redirect('dashboard')
-        return view_func(request, *args, **kwargs)
-    return wrapper
+from .forms import UsuarioCrearForm, UsuarioEditarForm
+from .permisos import admin_required, es_admin
 
 
 def index(request):
-    if request.session.get('usuario_id'):
+    if request.user.is_authenticated:
         return redirect('dashboard')
     return render(request, 'public/index.html')
 
 
 def login_view(request):
-    if request.session.get('usuario_id'):
+    if request.user.is_authenticated:
         return redirect('dashboard')
 
     if request.method == 'POST':
-        email = request.POST.get('email', '').strip()
-        password = request.POST.get('password', '').strip()
-        usuario = data.get_usuario_by_email(email)
+        email = request.POST.get('email', '').strip().lower()
+        password = request.POST.get('password', '')
+        usuario = authenticate(request, username=email, password=password)
 
-        if usuario and usuario['password'] == password and usuario['estado'] == 'activo':
-            request.session['usuario_id'] = usuario['id']
-            request.session['nombre'] = usuario['nombre']
-            request.session['email'] = usuario['email']
-            request.session['rol'] = usuario['rol']
-            messages.success(request, f'Bienvenido, {usuario["nombre"]}')
+        if usuario is not None:
+            login(request, usuario)
+            messages.success(request, f'Bienvenido, {usuario.get_full_name() or usuario.username}')
+            next_url = request.POST.get('next') or request.GET.get('next')
+            if next_url and url_has_allowed_host_and_scheme(
+                next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure(),
+            ):
+                return redirect(next_url)
             return redirect('dashboard')
-        else:
-            messages.error(request, 'Credenciales incorrectas o usuario inactivo.')
 
-    return render(request, 'public/login.html')
+        messages.error(request, 'Credenciales incorrectas o usuario inactivo.')
+
+    return render(request, 'public/login.html', {
+        'next': request.POST.get('next') or request.GET.get('next', ''),
+    })
 
 
 def logout_view(request):
-    request.session.flush()
+    logout(request)
     messages.info(request, 'Sesión cerrada correctamente.')
     return redirect('index')
 
@@ -68,8 +56,6 @@ def dashboard(request):
     context = {
         'stats': stats,
         'alertas': alertas[:5],
-        'rol': request.session.get('rol'),
-        'nombre': request.session.get('nombre'),
     }
     return render(request, 'admin/dashboard.html', context)
 
@@ -79,7 +65,6 @@ def productos_list(request):
     productos = data.get_productos()
     return render(request, 'admin/productos.html', {
         'productos': productos,
-        'rol': request.session.get('rol'),
     })
 
 
@@ -91,7 +76,6 @@ def producto_detail(request, pk):
         return redirect('productos_list')
     return render(request, 'admin/producto_detail.html', {
         'producto': producto,
-        'rol': request.session.get('rol'),
     })
 
 
@@ -100,7 +84,6 @@ def categorias_list(request):
     categorias = data.get_categorias()
     return render(request, 'admin/categorias.html', {
         'categorias': categorias,
-        'rol': request.session.get('rol'),
     })
 
 
@@ -108,79 +91,92 @@ def categorias_list(request):
 
 @admin_required
 def usuarios_list(request):
-    usuarios = data.get_usuarios()
-    return render(request, 'admin/usuarios.html', {
-        'usuarios': usuarios,
-        'rol': request.session.get('rol'),
-    })
+    usuarios = list(User.objects.prefetch_related('groups').order_by('first_name', 'last_name', 'username'))
+    for usuario in usuarios:
+        usuario.rol_nombre = 'Administrador' if es_admin(usuario) else 'Operador'
+    return render(request, 'admin/usuarios.html', {'usuarios': usuarios})
 
 
 @admin_required
 def usuario_detail(request, pk):
-    usuario = data.get_usuario_by_id(pk)
-    if not usuario:
-        messages.error(request, 'Usuario no encontrado.')
-        return redirect('usuarios_list')
+    usuario = get_object_or_404(User, pk=pk)
     return render(request, 'admin/usuario_detail.html', {
         'usuario': usuario,
-        'rol': request.session.get('rol'),
+        'rol_usuario': 'Administrador' if es_admin(usuario) else 'Operador',
     })
 
 
 @admin_required
 def usuario_crear(request):
     if request.method == 'POST':
-        # Simulación: en U1 solo mostramos el flujo. En U2 se guardará en BD.
-        nombre = request.POST.get('nombre', '').strip()
-        email = request.POST.get('email', '').strip()
-        rol = request.POST.get('rol', 'Operador')
-        if nombre and email:
-            messages.success(request, f'Usuario "{nombre}" creado correctamente (simulación). En la Evaluación 2 se guardará en base de datos.')
+        form = UsuarioCrearForm(request.POST)
+        if form.is_valid():
+            usuario = form.save()
+            messages.success(request, f'Usuario "{usuario.get_full_name() or usuario.username}" creado correctamente.')
             return redirect('usuarios_list')
-        messages.error(request, 'Completa todos los campos obligatorios.')
+        messages.error(request, 'Revisa los datos del formulario.')
+    else:
+        form = UsuarioCrearForm()
+
     return render(request, 'admin/usuario_form.html', {
         'titulo': 'Crear nuevo usuario',
         'accion': 'crear',
-        'rol': request.session.get('rol'),
+        'form': form,
     })
 
 
 @admin_required
 def usuario_editar(request, pk):
-    usuario = data.get_usuario_by_id(pk)
-    if not usuario:
-        messages.error(request, 'Usuario no encontrado.')
-        return redirect('usuarios_list')
+    usuario = get_object_or_404(User, pk=pk)
 
     if request.method == 'POST':
-        nuevo_rol = request.POST.get('rol', usuario['rol'])
-        nuevo_estado = request.POST.get('estado', usuario['estado'])
-        messages.success(request, f'Usuario "{usuario["nombre"]}" actualizado: Rol={nuevo_rol}, Estado={nuevo_estado} (simulación).')
-        return redirect('usuarios_list')
+        form = UsuarioEditarForm(request.POST, instance=usuario)
+        if form.is_valid():
+            if usuario == request.user and form.cleaned_data['rol'] != 'Administrador':
+                messages.error(request, 'No puedes quitarte a ti mismo el rol de Administrador.')
+            elif usuario == request.user and not form.cleaned_data['is_active']:
+                messages.error(request, 'No puedes desactivar tu propio usuario.')
+            else:
+                form.save()
+                messages.success(request, f'Usuario "{usuario.get_full_name() or usuario.username}" actualizado correctamente.')
+                return redirect('usuarios_list')
+        else:
+            messages.error(request, 'Revisa los datos del formulario.')
+    else:
+        form = UsuarioEditarForm(instance=usuario)
 
     return render(request, 'admin/usuario_form.html', {
-        'titulo': 'Editar rol o estado',
+        'titulo': 'Editar usuario',
         'accion': 'editar',
         'usuario': usuario,
-        'rol': request.session.get('rol'),
+        'form': form,
     })
 
 
 @admin_required
 def usuario_eliminar(request, pk):
-    usuario = data.get_usuario_by_id(pk)
-    if not usuario:
-        messages.error(request, 'Usuario no encontrado.')
+    usuario = get_object_or_404(User, pk=pk)
+
+    if usuario == request.user:
+        messages.error(request, 'No puedes eliminar tu propio usuario.')
         return redirect('usuarios_list')
+
+    if es_admin(usuario):
+        administradores = User.objects.filter(
+            Q(is_superuser=True) | Q(groups__name='Administrador'),
+            is_active=True,
+        ).distinct().count()
+        if administradores <= 1:
+            messages.error(request, 'No puedes eliminar al último administrador activo.')
+            return redirect('usuarios_list')
 
     if request.method == 'POST':
-        messages.success(request, f'Usuario "{usuario["nombre"]}" eliminado (simulación). En la Evaluación 2 se eliminará de la base de datos.')
+        nombre = usuario.get_full_name() or usuario.username
+        usuario.delete()
+        messages.success(request, f'Usuario "{nombre}" eliminado correctamente.')
         return redirect('usuarios_list')
 
-    return render(request, 'admin/usuario_eliminar.html', {
-        'usuario': usuario,
-        'rol': request.session.get('rol'),
-    })
+    return render(request, 'admin/usuario_eliminar.html', {'usuario': usuario})
 
 
 # ========== INGRESOS Y SALIDAS ==========
@@ -190,7 +186,6 @@ def ingresos_list(request):
     ingresos = data.get_ingresos()
     return render(request, 'admin/ingresos.html', {
         'ingresos': ingresos,
-        'rol': request.session.get('rol'),
     })
 
 
@@ -208,7 +203,6 @@ def ingreso_registrar(request):
     return render(request, 'admin/ingreso_form.html', {
         'productos': productos,
         'proveedores': proveedores,
-        'rol': request.session.get('rol'),
     })
 
 
@@ -217,7 +211,6 @@ def salidas_list(request):
     salidas = data.get_salidas()
     return render(request, 'admin/salidas.html', {
         'salidas': salidas,
-        'rol': request.session.get('rol'),
     })
 
 
@@ -234,7 +227,6 @@ def salida_registrar(request):
 
     return render(request, 'admin/salida_form.html', {
         'productos': productos,
-        'rol': request.session.get('rol'),
     })
 
 
@@ -257,7 +249,6 @@ def salida_autorizar(request, pk):
 
     return render(request, 'admin/salida_autorizar.html', {
         'salida': salida,
-        'rol': request.session.get('rol'),
     })
 
 
@@ -266,7 +257,6 @@ def alertas(request):
     alertas = data.get_productos_alerta()
     return render(request, 'admin/alertas.html', {
         'alertas': alertas,
-        'rol': request.session.get('rol'),
     })
 
 
@@ -275,5 +265,4 @@ def stock(request):
     productos = data.get_productos()
     return render(request, 'admin/stock.html', {
         'productos': productos,
-        'rol': request.session.get('rol'),
     })

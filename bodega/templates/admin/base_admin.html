@@ -12,12 +12,15 @@
             <ul class="navbar-nav ms-auto align-items-lg-center">
                 <li class="nav-item me-3">
                     <span class="text-white-50 small">
-                        <i class="bi bi-person-circle me-1"></i>{{ request.session.nombre }}
-                        <span class="badge bg-light text-dark ms-1">{{ request.session.rol }}</span>
+                        <i class="bi bi-person-circle me-1"></i>{{ request.user.get_full_name|default:request.user.username }}
+                        <span class="badge bg-light text-dark ms-1">{{ rol }}</span>
                     </span>
                 </li>
                 <li class="nav-item">
-                    <a href="{% url 'logout' %}" class="btn btn-outline-light btn-sm">Salir</a>
+                    <form method="post" action="{% url 'logout' %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-light btn-sm">Salir</button>
+                    </form>
                 </li>
             </ul>
         </div>
@@ -32,7 +35,7 @@
                     <i class="bi bi-speedometer2 me-2"></i>Dashboard
                 </a>
 
-                {% if request.session.rol == 'Administrador' %}
+                {% if es_admin %}
                 {# --- MENÚ ADMINISTRADOR (según diagrama de flujo) --- #}
                 <div class="px-3 pt-3 pb-1">
                     <small class="text-muted text-uppercase fw-semibold" style="font-size:0.7rem;">Inventario y stock</small>

@@ -23,13 +23,16 @@
                 <div class="card p-4">
                     <form method="post">
                         {% csrf_token %}
+                        {% if next %}
+                        <input type="hidden" name="next" value="{{ next }}">
+                        {% endif %}
                         <div class="mb-3">
                             <label class="form-label small fw-semibold">Correo</label>
-                            <input type="email" name="email" class="form-control" placeholder="tu@musicpro.cl" required autofocus>
+                            <input type="email" name="email" class="form-control" placeholder="tu@musicpro.cl" autocomplete="username" required autofocus>
                         </div>
                         <div class="mb-3">
                             <label class="form-label small fw-semibold">Contraseña</label>
-                            <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+                            <input type="password" name="password" class="form-control" placeholder="••••••••" autocomplete="current-password" required>
                         </div>
                         <button type="submit" class="btn btn-blue w-100">Ingresar</button>
                     </form>

@@ -6,50 +6,42 @@
     <a href="{% url 'usuarios_list' %}" class="btn btn-sm btn-outline-secondary">Volver</a>
 </div>
 
-<div class="card p-4 col-lg-6">
-    <form method="post">
+<div class="card p-4 col-lg-7">
+    <form method="post" novalidate>
         {% csrf_token %}
 
-        {% if accion == 'crear' %}
-        <div class="mb-3">
-            <label class="form-label small fw-semibold">Nombre completo</label>
-            <input type="text" name="nombre" class="form-control" required placeholder="Ej: Nombre Apellido">
-        </div>
-        <div class="mb-3">
-            <label class="form-label small fw-semibold">Correo electrónico</label>
-            <input type="email" name="email" class="form-control" required placeholder="usuario@musicpro.cl">
-        </div>
-        <div class="mb-3">
-            <label class="form-label small fw-semibold">Contraseña temporal</label>
-            <input type="text" name="password" class="form-control" value="operador123" readonly>
-            <div class="form-text">Se asignará una contraseña temporal. El usuario podrá cambiarla después.</div>
-        </div>
-        {% else %}
-        <div class="mb-3">
-            <label class="form-label small fw-semibold">Usuario</label>
-            <input type="text" class="form-control" value="{{ usuario.nombre }} ({{ usuario.email }})" disabled>
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger py-2">
+            {{ form.non_field_errors }}
         </div>
         {% endif %}
-
-        <div class="mb-3">
-            <label class="form-label small fw-semibold">Rol</label>
-            <select name="rol" class="form-select">
-                <option value="Operador" {% if usuario.rol == 'Operador' %}selected{% endif %}>Operador</option>
-                <option value="Administrador" {% if usuario.rol == 'Administrador' %}selected{% endif %}>Administrador</option>
-            </select>
-        </div>
 
         {% if accion == 'editar' %}
         <div class="mb-3">
-            <label class="form-label small fw-semibold">Estado</label>
-            <select name="estado" class="form-select">
-                <option value="activo" {% if usuario.estado == 'activo' %}selected{% endif %}>Activo</option>
-                <option value="inactivo" {% if usuario.estado == 'inactivo' %}selected{% endif %}>Inactivo</option>
-            </select>
+            <label class="form-label small fw-semibold">Usuario</label>
+            <input type="text" class="form-control" value="{{ usuario.username }}" disabled>
+            <div class="form-text">El correo se usa como nombre de usuario para iniciar sesión.</div>
         </div>
         {% endif %}
 
-        <div class="d-flex gap-2">
+        {% for field in form %}
+            {% if field.name == 'is_active' %}
+            <div class="mb-3 form-check">
+                {{ field }}
+                <label class="form-check-label small fw-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            {% else %}
+            <div class="mb-3">
+                <label class="form-label small fw-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            {% endif %}
+        {% endfor %}
+
+        <div class="d-flex gap-2 mt-4">
             <button type="submit" class="btn btn-blue">Guardar</button>
             <a href="{% url 'usuarios_list' %}" class="btn btn-outline-secondary">Cancelar</a>
         </div>

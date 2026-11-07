@@ -1,5 +1,6 @@
 import random
 
+from django.contrib.auth.models import Group, User
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from faker import Faker
@@ -30,6 +31,7 @@ class Command(BaseCommand):
 
         # Todo se guarda en una sola transaccion: es mucho mas rapido
         with transaction.atomic():
+            self.crear_usuarios()
             self.crear_catalogos(fake)
             self.crear_productos(fake, cantidad)
             self.crear_solicitudes(fake, movimientos)
@@ -37,6 +39,54 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS("Datos creados correctamente."))
         self.mostrar_resumen()
+
+    def crear_usuarios(self):
+        """Crea los grupos y usuarios base del sistema con contraseñas hasheadas."""
+        grupo_admin, _ = Group.objects.get_or_create(name='Administrador')
+        grupo_operador, _ = Group.objects.get_or_create(name='Operador')
+
+        usuarios = [
+            {
+                'username': 'admin@musicpro.cl',
+                'email': 'admin@musicpro.cl',
+                'first_name': 'Administrador',
+                'last_name': 'Music Pro',
+                'password': 'admin123',
+                'grupo': grupo_admin,
+                'is_superuser': True,
+                'is_staff': True,
+            },
+            {
+                'username': 'operador@musicpro.cl',
+                'email': 'operador@musicpro.cl',
+                'first_name': 'Operador',
+                'last_name': 'Bodega',
+                'password': 'operador123',
+                'grupo': grupo_operador,
+                'is_superuser': False,
+                'is_staff': False,
+            },
+        ]
+
+        for datos in usuarios:
+            password = datos['password']
+            grupo = datos['grupo']
+            username = datos['username']
+            defaults = {
+                clave: valor for clave, valor in datos.items()
+                if clave not in ('username', 'password', 'grupo')
+            }
+            usuario, creado = User.objects.get_or_create(username=username, defaults=defaults)
+            if creado:
+                usuario.set_password(password)
+            usuario.email = datos['email']
+            usuario.first_name = datos['first_name']
+            usuario.last_name = datos['last_name']
+            usuario.is_superuser = datos['is_superuser']
+            usuario.is_staff = datos['is_staff']
+            usuario.is_active = True
+            usuario.save()
+            usuario.groups.set([grupo])
 
     def crear_catalogos(self, fake):
         # Tablas pequenas: solo se crean si estan vacias
