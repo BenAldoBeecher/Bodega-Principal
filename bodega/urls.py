@@ -11,6 +11,9 @@ urlpatterns = [
     # Dashboard
     path('dashboard/', views.dashboard, name='dashboard'),
 
+    # Reportes ORM
+    path('reportes/', views.reportes, name='reportes'),
+
     # Productos
     path('productos/', views.productos_list, name='productos_list'),
     path('productos/crear/', views.producto_crear, name='producto_crear'),

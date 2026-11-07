@@ -1,0 +1,161 @@
+{% extends 'admin/base_admin.html' %}
+{% block title %}Reportes ORM - Music Pro Bodega{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="fw-bold mb-0">Reportes con Django ORM</h4>
+        <p class="text-muted small mb-0">20 consultas sobre productos, proveedores, sucursales, solicitudes y movimientos.</p>
+    </div>
+    <span class="badge bg-primary">Django ORM</span>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header bg-white fw-semibold">Consultas disponibles</div>
+            <div class="list-group list-group-flush" style="max-height: 70vh; overflow-y: auto;">
+                {% for r in reportes %}
+                <a href="?reporte={{ r.id }}" class="list-group-item list-group-item-action {% if r.id == reporte.id %}active{% endif %}">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <span>
+                            <span class="badge {% if r.id == reporte.id %}bg-light text-dark{% else %}bg-secondary{% endif %} me-1">{{ r.id }}</span>
+                            {{ r.titulo }}
+                        </span>
+                        <small class="opacity-75 ms-2">{{ r.nivel }}</small>
+                    </div>
+                    <small class="d-block mt-1 opacity-75">{{ r.pregunta }}</small>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h5 class="fw-bold mb-1">Reporte {{ reporte.id }}: {{ reporte.titulo }}</h5>
+                        <p class="text-muted mb-0">{{ reporte.pregunta }}</p>
+                    </div>
+                    <span class="badge bg-primary ms-2">{{ reporte.nivel }}</span>
+                </div>
+            </div>
+        </div>
+
+        {% if filtros %}
+        <div class="card mb-3">
+            <div class="card-body">
+                <form method="get" class="row g-2 align-items-end">
+                    <input type="hidden" name="reporte" value="{{ reporte.id }}">
+
+                    {% if filtros == 'categoria' %}
+                    <div class="col-md-8">
+                        <label class="form-label small fw-semibold">Categoría</label>
+                        <select name="categoria" class="form-select">
+                            {% for c in opciones.categorias %}
+                            <option value="{{ c.id }}" {% if seleccion.categoria == c.id %}selected{% endif %}>{{ c.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% elif filtros == 'proveedor' %}
+                    <div class="col-md-8">
+                        <label class="form-label small fw-semibold">Proveedor</label>
+                        <select name="proveedor" class="form-select">
+                            {% for p in opciones.proveedores %}
+                            <option value="{{ p.id }}" {% if seleccion.proveedor == p.id %}selected{% endif %}>{{ p.razon_social }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% elif filtros == 'sucursal' %}
+                    <div class="col-md-8">
+                        <label class="form-label small fw-semibold">Sucursal</label>
+                        <select name="sucursal" class="form-select">
+                            {% for s in opciones.sucursales %}
+                            <option value="{{ s.id }}" {% if seleccion.sucursal == s.id %}selected{% endif %}>{{ s.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% elif filtros == 'solicitud' %}
+                    <div class="col-md-8">
+                        <label class="form-label small fw-semibold">Solicitud</label>
+                        <select name="solicitud" class="form-select">
+                            {% for s in opciones.solicitudes %}
+                            <option value="{{ s.id }}" {% if seleccion.solicitud == s.id %}selected{% endif %}>
+                                #{{ s.id }} - {{ s.sucursal.nombre }} ({{ s.fecha|date:"d-m-Y" }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% elif filtros == 'fechas' %}
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold">Desde</label>
+                        <input type="date" name="desde" value="{{ seleccion.desde }}" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold">Hasta</label>
+                        <input type="date" name="hasta" value="{{ seleccion.hasta }}" class="form-control">
+                    </div>
+                    {% endif %}
+
+                    <div class="col-md-4">
+                        <button type="submit" class="btn btn-blue w-100">Aplicar filtro</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if resumen %}
+        <div class="row g-3 mb-3">
+            {% for item in resumen %}
+            <div class="col-md-6">
+                <div class="card p-3 h-100">
+                    <div class="text-muted small">{{ item.etiqueta }}</div>
+                    <div class="fs-4 fw-bold">{{ item.valor }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if columnas %}
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 align-middle">
+                        <thead>
+                            <tr>
+                                {% for col in columnas %}<th>{{ col }}</th>{% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for fila in filas %}
+                            <tr>
+                                {% for valor in fila %}<td>{{ valor }}</td>{% endfor %}
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="{{ columnas|length }}" class="text-center text-muted py-4">Sin resultados para este reporte</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if nota %}
+        <p class="text-muted small mt-2 mb-0">{{ nota }}</p>
+        {% endif %}
+
+        {% if consulta %}
+        <details class="mt-3">
+            <summary class="small text-muted">Ver consulta ORM utilizada</summary>
+            <pre class="bg-light p-3 rounded small mt-2 mb-0"><code>{{ consulta }}</code></pre>
+        </details>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -19,6 +19,7 @@ from .models import (
     Solicitud, Sucursal,
 )
 from .permisos import admin_required, es_admin
+from .reportes import REPORTES, obtener_reporte
 
 
 def index(request):
@@ -1045,3 +1046,15 @@ def alertas(request):
 def stock(request):
     productos = Producto.objects.select_related('categoria', 'proveedor').order_by('nombre')
     return render(request, 'admin/stock.html', {'productos': productos})
+
+
+@login_required
+def reportes(request):
+    try:
+        reporte_id = int(request.GET.get('reporte', '1'))
+    except (TypeError, ValueError):
+        reporte_id = 1
+
+    contexto = obtener_reporte(reporte_id, request.GET)
+    contexto['reportes'] = REPORTES
+    return render(request, 'admin/reportes.html', contexto)
