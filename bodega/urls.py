@@ -43,16 +43,33 @@ urlpatterns = [
     path('usuarios/<int:pk>/editar/', views.usuario_editar, name='usuario_editar'),
     path('usuarios/<int:pk>/eliminar/', views.usuario_eliminar, name='usuario_eliminar'),
 
-    # Ingresos
+    # Solicitudes de pedidos
+    path('solicitudes/', views.solicitudes_list, name='solicitudes_list'),
+    path('solicitudes/crear/', views.solicitud_crear, name='solicitud_crear'),
+    path('solicitudes/<int:pk>/', views.solicitud_detail, name='solicitud_detail'),
+    path('solicitudes/<int:pk>/editar/', views.solicitud_editar, name='solicitud_editar'),
+    path('solicitudes/<int:pk>/eliminar/', views.solicitud_eliminar, name='solicitud_eliminar'),
+    path('solicitudes/<int:pk>/autorizar/', views.solicitud_autorizar, name='solicitud_autorizar'),
+    path('solicitudes/<int:pk>/despachar/', views.solicitud_despachar, name='solicitud_despachar'),
+
+    # Detalles de solicitud
+    path('solicitudes/<int:solicitud_pk>/detalles/crear/', views.detalle_crear, name='detalle_crear'),
+    path('detalles/<int:pk>/editar/', views.detalle_editar, name='detalle_editar'),
+    path('detalles/<int:pk>/eliminar/', views.detalle_eliminar, name='detalle_eliminar'),
+
+    # Movimientos de stock
+    path('movimientos/', views.movimientos_list, name='movimientos_list'),
+    path('movimientos/crear/', views.movimiento_crear, name='movimiento_crear'),
+    path('movimientos/<int:pk>/eliminar/', views.movimiento_eliminar, name='movimiento_eliminar'),
+
+    # Rutas antiguas (compatibilidad): redirigen al flujo nuevo.
     path('ingresos/', views.ingresos_list, name='ingresos_list'),
     path('ingresos/registrar/', views.ingreso_registrar, name='ingreso_registrar'),
-
-    # Salidas / Solicitudes de pedidos
     path('salidas/', views.salidas_list, name='salidas_list'),
     path('salidas/registrar/', views.salida_registrar, name='salida_registrar'),
     path('salidas/<int:pk>/autorizar/', views.salida_autorizar, name='salida_autorizar'),
 
-    # Alertas y Stock
+    # Alertas y stock
     path('alertas/', views.alertas, name='alertas'),
     path('stock/', views.stock, name='stock'),
 ]

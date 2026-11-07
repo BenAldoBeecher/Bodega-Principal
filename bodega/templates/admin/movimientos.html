@@ -1,0 +1,108 @@
+{% extends 'admin/base_admin.html' %}
+{% block title %}Movimientos de stock - Music Pro Bodega{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="fw-bold mb-0">Movimientos de stock</h4>
+        <p class="text-muted small mb-0">Historial de entradas y salidas de la bodega.</p>
+    </div>
+    <a href="{% url 'movimiento_crear' %}" class="btn btn-blue btn-sm">
+        <i class="bi bi-plus-lg me-1"></i>Registrar movimiento
+    </a>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-2">
+                <label class="form-label small fw-semibold">Tipo</label>
+                <select name="tipo" class="form-select">
+                    <option value="">Todos</option>
+                    {% for valor, etiqueta in tipos %}
+                    <option value="{{ valor }}" {% if tipo_seleccionado == valor %}selected{% endif %}>{{ etiqueta }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small fw-semibold">Producto</label>
+                <select name="producto" class="form-select">
+                    <option value="">Todos los productos</option>
+                    {% for p in productos %}
+                    <option value="{{ p.id }}" {% if producto_seleccionado == p.id %}selected{% endif %}>{{ p.sku }} - {{ p.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-semibold">Desde</label>
+                <input type="date" name="desde" value="{{ desde }}" class="form-control">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-semibold">Hasta</label>
+                <input type="date" name="hasta" value="{{ hasta }}" class="form-control">
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-blue w-100">Filtrar</button>
+                <a href="{% url 'movimientos_list' %}" class="btn btn-outline-secondary w-100">Limpiar</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Fecha</th>
+                        <th>Tipo</th>
+                        <th>Producto</th>
+                        <th>Cantidad</th>
+                        <th>Solicitud</th>
+                        <th>Observación</th>
+                        {% if es_admin %}<th class="text-end">Acciones</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in movimientos %}
+                    <tr>
+                        <td class="text-muted">#{{ m.id }}</td>
+                        <td class="small">{{ m.fecha|date:"d-m-Y H:i" }}</td>
+                        <td>
+                            {% if m.tipo == 'entrada' %}
+                            <span class="badge badge-ok">Entrada</span>
+                            {% else %}
+                            <span class="badge badge-alerta">Salida</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="fw-semibold">{{ m.producto.nombre }}</div>
+                            <div class="text-muted small">{{ m.producto.sku }}</div>
+                        </td>
+                        <td class="fw-semibold">
+                            {% if m.tipo == 'entrada' %}+{% else %}-{% endif %}{{ m.cantidad }}
+                        </td>
+                        <td class="small">
+                            {% if m.solicitud %}
+                            #{{ m.solicitud.id }} - {{ m.solicitud.sucursal.nombre }}
+                            {% else %}-{% endif %}
+                        </td>
+                        <td class="small text-muted">{{ m.observacion|default:"-" }}</td>
+                        {% if es_admin and not m.solicitud %}
+                        <td class="text-end">
+                            <a href="{% url 'movimiento_eliminar' m.id %}" class="btn btn-sm btn-outline-danger">Eliminar</a>
+                        </td>
+                        {% elif es_admin %}
+                        <td class="text-end text-muted small">Generado por solicitud</td>
+                        {% endif %}
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="{% if es_admin %}8{% else %}7{% endif %}" class="text-center text-muted py-4">Sin movimientos registrados</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

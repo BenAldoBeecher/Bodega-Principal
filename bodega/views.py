@@ -2,17 +2,22 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.db.models import Count, F, Q
+from django.db import transaction
+from django.db.models import Count, F, Q, Sum
 from django.db.models.deletion import ProtectedError
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.utils.dateparse import parse_date
 from django.utils.http import url_has_allowed_host_and_scheme
 
-from . import data_loader as data
 from .forms import (
-    CategoriaForm, ProductoForm, ProveedorForm, SucursalForm,
-    UsuarioCrearForm, UsuarioEditarForm,
+    CategoriaForm, DetalleSolicitudForm, MovimientoStockForm, ProductoForm,
+    ProveedorForm, SolicitudForm, SucursalForm, UsuarioCrearForm, UsuarioEditarForm,
 )
-from .models import Categoria, MovimientoStock, Producto, Proveedor, Solicitud, Sucursal
+from .models import (
+    Categoria, DetalleSolicitud, MovimientoStock, Producto, Proveedor,
+    Solicitud, Sucursal,
+)
 from .permisos import admin_required, es_admin
 
 
@@ -462,77 +467,568 @@ def usuario_eliminar(request, pk):
     return render(request, 'admin/usuario_eliminar.html', {'usuario': usuario})
 
 
-# ========== INGRESOS Y SALIDAS ==========
+# ========== SOLICITUDES, DETALLES Y MOVIMIENTOS DE STOCK ==========
+
+def _contexto_solicitud_detail(solicitud, detalle_form=None):
+    detalles = list(
+        solicitud.detallesolicitud_set.select_related('producto__categoria')
+        .order_by('producto__nombre')
+    )
+    movimientos = (
+        solicitud.movimientostock_set.select_related('producto')
+        .order_by('-fecha')
+    )
+    totales = {
+        'solicitado': sum(d.cantidad_solicitada or 0 for d in detalles),
+        'aprobado': sum(d.cantidad_aprobada or 0 for d in detalles),
+        'despachado': sum(d.cantidad_despachada or 0 for d in detalles),
+    }
+    if detalle_form is None and solicitud.estado == 'pendiente':
+        detalle_form = DetalleSolicitudForm()
+    return {
+        'solicitud': solicitud,
+        'detalles': detalles,
+        'movimientos': movimientos,
+        'totales': totales,
+        'detalle_form': detalle_form,
+    }
+
 
 @login_required
-def ingresos_list(request):
-    ingresos = data.get_ingresos()
-    return render(request, 'admin/ingresos.html', {
-        'ingresos': ingresos,
+def solicitudes_list(request):
+    estado = request.GET.get('estado', '').strip()
+    sucursal_id = request.GET.get('sucursal', '').strip()
+
+    solicitudes = (
+        Solicitud.objects.select_related('sucursal')
+        .annotate(
+            total_items=Count('detallesolicitud'),
+            total_solicitado=Sum('detallesolicitud__cantidad_solicitada'),
+        )
+        .order_by('-fecha')
+    )
+    if estado in dict(Solicitud.ESTADO_CHOICES):
+        solicitudes = solicitudes.filter(estado=estado)
+
+    sucursal_seleccionada = None
+    if sucursal_id.isdigit():
+        sucursal_seleccionada = int(sucursal_id)
+        solicitudes = solicitudes.filter(sucursal_id=sucursal_seleccionada)
+
+    return render(request, 'admin/solicitudes.html', {
+        'solicitudes': solicitudes,
+        'estados': Solicitud.ESTADO_CHOICES,
+        'estado_seleccionado': estado,
+        'sucursales': Sucursal.objects.order_by('nombre'),
+        'sucursal_seleccionada': sucursal_seleccionada,
     })
 
 
 @login_required
-def ingreso_registrar(request):
-    productos = data.get_productos()
-    proveedores = data.get_proveedores()
+def solicitud_crear(request):
+    if request.method == 'POST':
+        form = SolicitudForm(request.POST)
+        if form.is_valid():
+            solicitud = form.save(commit=False)
+            solicitud.estado = 'pendiente'
+            solicitud.save()
+            messages.success(
+                request,
+                f'Solicitud #{solicitud.pk} creada. Agrega los productos solicitados.',
+            )
+            return redirect('solicitud_detail', pk=solicitud.pk)
+        messages.error(request, 'Revisa los datos del formulario.')
+    else:
+        form = SolicitudForm(initial={'fecha': timezone.now()})
+
+    return render(request, 'admin/solicitud_form.html', {
+        'form': form,
+        'titulo': 'Nueva solicitud',
+        'cancelar_url_name': 'solicitudes_list',
+    })
+
+
+@login_required
+def solicitud_detail(request, pk):
+    solicitud = get_object_or_404(Solicitud.objects.select_related('sucursal'), pk=pk)
+    return render(request, 'admin/solicitud_detail.html', _contexto_solicitud_detail(solicitud))
+
+
+@login_required
+def solicitud_editar(request, pk):
+    solicitud = get_object_or_404(Solicitud, pk=pk)
+    if solicitud.estado != 'pendiente':
+        messages.error(request, 'Solo se pueden editar solicitudes pendientes.')
+        return redirect('solicitud_detail', pk=solicitud.pk)
 
     if request.method == 'POST':
-        proveedor = request.POST.get('proveedor')
-        observacion = request.POST.get('observacion', '')
-        messages.success(request, 'Ingreso de productos registrado correctamente (simulación). En la Evaluación 2 se guardará y actualizará el stock automáticamente.')
-        return redirect('ingresos_list')
+        form = SolicitudForm(request.POST, instance=solicitud)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Solicitud #{solicitud.pk} actualizada correctamente.')
+            return redirect('solicitud_detail', pk=solicitud.pk)
+        messages.error(request, 'Revisa los datos del formulario.')
+    else:
+        form = SolicitudForm(instance=solicitud)
 
-    return render(request, 'admin/ingreso_form.html', {
-        'productos': productos,
-        'proveedores': proveedores,
+    return render(request, 'admin/solicitud_form.html', {
+        'form': form,
+        'titulo': f'Editar solicitud #{solicitud.pk}',
+        'solicitud': solicitud,
+        'cancelar_url_name': 'solicitud_detail',
+        'cancelar_pk': solicitud.pk,
     })
 
 
 @login_required
-def salidas_list(request):
-    salidas = data.get_salidas()
-    return render(request, 'admin/salidas.html', {
-        'salidas': salidas,
-    })
-
-
-@login_required
-def salida_registrar(request):
-    """Solo operadores registran salidas. Quedan en estado pendiente para autorización del admin."""
-    productos = data.get_productos()
+def solicitud_eliminar(request, pk):
+    solicitud = get_object_or_404(Solicitud, pk=pk)
+    if solicitud.estado != 'pendiente':
+        messages.error(request, 'Solo se pueden eliminar solicitudes pendientes.')
+        return redirect('solicitud_detail', pk=solicitud.pk)
 
     if request.method == 'POST':
-        destino = request.POST.get('destino', '')
-        observacion = request.POST.get('observacion', '')
-        messages.success(request, 'Solicitud de salida/envío registrada. Queda pendiente de autorización por el Administrador (simulación).')
-        return redirect('salidas_list')
+        numero = solicitud.pk
+        solicitud.delete()
+        messages.success(request, f'Solicitud #{numero} eliminada correctamente.')
+        return redirect('solicitudes_list')
 
-    return render(request, 'admin/salida_form.html', {
-        'productos': productos,
+    return render(request, 'admin/confirmar_eliminar.html', {
+        'titulo': f'Eliminar solicitud #{solicitud.pk}',
+        'objeto': f'Solicitud #{solicitud.pk} - {solicitud.sucursal.nombre}',
+        'detalle': 'Se eliminarán también todos sus detalles.',
+        'cancelar_url_name': 'solicitud_detail',
+        'cancelar_pk': solicitud.pk,
+    })
+
+
+@login_required
+def detalle_crear(request, solicitud_pk):
+    solicitud = get_object_or_404(Solicitud.objects.select_related('sucursal'), pk=solicitud_pk)
+    if solicitud.estado != 'pendiente':
+        messages.error(request, 'Solo se pueden agregar productos a solicitudes pendientes.')
+        return redirect('solicitud_detail', pk=solicitud.pk)
+
+    if request.method != 'POST':
+        return redirect('solicitud_detail', pk=solicitud.pk)
+
+    form = DetalleSolicitudForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, 'Revisa los datos del producto y la cantidad.')
+        return render(
+            request,
+            'admin/solicitud_detail.html',
+            _contexto_solicitud_detail(solicitud, form),
+        )
+
+    producto = form.cleaned_data['producto']
+    if solicitud.detallesolicitud_set.filter(producto=producto).exists():
+        messages.error(
+            request,
+            'Ese producto ya está en la solicitud. Edita la cantidad del detalle existente.',
+        )
+        return render(
+            request,
+            'admin/solicitud_detail.html',
+            _contexto_solicitud_detail(solicitud, form),
+        )
+
+    detalle = form.save(commit=False)
+    detalle.solicitud = solicitud
+    detalle.save()
+    messages.success(request, f'Producto "{producto.nombre}" agregado a la solicitud.')
+    return redirect('solicitud_detail', pk=solicitud.pk)
+
+
+@login_required
+def detalle_editar(request, pk):
+    detalle = get_object_or_404(
+        DetalleSolicitud.objects.select_related('solicitud', 'producto'), pk=pk,
+    )
+    solicitud = detalle.solicitud
+    if solicitud.estado != 'pendiente':
+        messages.error(request, 'Solo se pueden editar detalles de solicitudes pendientes.')
+        return redirect('solicitud_detail', pk=solicitud.pk)
+
+    if request.method == 'POST':
+        form = DetalleSolicitudForm(request.POST, instance=detalle)
+        if form.is_valid():
+            producto = form.cleaned_data['producto']
+            duplicado = (
+                solicitud.detallesolicitud_set
+                .filter(producto=producto)
+                .exclude(pk=detalle.pk)
+                .exists()
+            )
+            if duplicado:
+                messages.error(request, 'Ese producto ya está en la solicitud.')
+            else:
+                form.save()
+                messages.success(request, 'Detalle actualizado correctamente.')
+                return redirect('solicitud_detail', pk=solicitud.pk)
+        else:
+            messages.error(request, 'Revisa los datos del detalle.')
+    else:
+        form = DetalleSolicitudForm(instance=detalle)
+
+    return render(request, 'admin/detalle_form.html', {
+        'form': form,
+        'titulo': f'Editar detalle de solicitud #{solicitud.pk}',
+        'detalle': detalle,
+        'cancelar_url_name': 'solicitud_detail',
+        'cancelar_pk': solicitud.pk,
+    })
+
+
+@login_required
+def detalle_eliminar(request, pk):
+    detalle = get_object_or_404(
+        DetalleSolicitud.objects.select_related('solicitud', 'producto'), pk=pk,
+    )
+    solicitud = detalle.solicitud
+    if solicitud.estado != 'pendiente':
+        messages.error(request, 'Solo se pueden eliminar detalles de solicitudes pendientes.')
+        return redirect('solicitud_detail', pk=solicitud.pk)
+
+    if request.method == 'POST':
+        detalle.delete()
+        messages.success(request, 'Detalle eliminado correctamente.')
+        return redirect('solicitud_detail', pk=solicitud.pk)
+
+    return render(request, 'admin/confirmar_eliminar.html', {
+        'titulo': 'Eliminar detalle de solicitud',
+        'objeto': f'{detalle.producto.nombre} ({detalle.cantidad_solicitada} unidades)',
+        'detalle': 'El producto se quitará de esta solicitud.',
+        'cancelar_url_name': 'solicitud_detail',
+        'cancelar_pk': solicitud.pk,
     })
 
 
 @admin_required
-def salida_autorizar(request, pk):
-    """Administrador revisa y autoriza (o rechaza) una solicitud de pedido."""
-    salidas = data.get_salidas()
-    salida = next((s for s in salidas if s['id'] == pk), None)
-    if not salida:
-        messages.error(request, 'Solicitud no encontrada.')
-        return redirect('salidas_list')
+def solicitud_autorizar(request, pk):
+    solicitud = get_object_or_404(Solicitud.objects.select_related('sucursal'), pk=pk)
+    if solicitud.estado != 'pendiente':
+        messages.error(request, 'Solo se pueden autorizar solicitudes pendientes.')
+        return redirect('solicitud_detail', pk=solicitud.pk)
+
+    detalles = list(
+        solicitud.detallesolicitud_set.select_related('producto')
+        .order_by('producto__nombre')
+    )
+    if not detalles:
+        messages.error(request, 'Agrega al menos un producto antes de autorizar la solicitud.')
+        return redirect('solicitud_detail', pk=solicitud.pk)
+
+    for detalle in detalles:
+        if request.method == 'POST':
+            detalle.valor_aprobacion = request.POST.get(
+                f'cantidad_{detalle.pk}', detalle.cantidad_solicitada,
+            )
+        else:
+            detalle.valor_aprobacion = (
+                detalle.cantidad_aprobada
+                if detalle.cantidad_aprobada is not None
+                else detalle.cantidad_solicitada
+            )
 
     if request.method == 'POST':
-        accion = request.POST.get('accion', 'autorizar')
-        if accion == 'autorizar':
-            messages.success(request, f'Solicitud #{pk} autorizada. El despacho puede proceder (simulación).')
-        else:
-            messages.warning(request, f'Solicitud #{pk} rechazada (simulación).')
-        return redirect('salidas_list')
+        accion = request.POST.get('accion')
 
-    return render(request, 'admin/salida_autorizar.html', {
-        'salida': salida,
+        if accion == 'rechazar':
+            with transaction.atomic():
+                for detalle in detalles:
+                    detalle.cantidad_aprobada = 0
+                    detalle.save(update_fields=['cantidad_aprobada'])
+                solicitud.estado = 'rechazada'
+                solicitud.save(update_fields=['estado'])
+            messages.warning(request, f'Solicitud #{solicitud.pk} rechazada.')
+            return redirect('solicitud_detail', pk=solicitud.pk)
+
+        if accion == 'aprobar':
+            errores = []
+            cantidades = {}
+            for detalle in detalles:
+                raw = str(detalle.valor_aprobacion).strip()
+                try:
+                    cantidad = int(raw)
+                except (TypeError, ValueError):
+                    errores.append(f'Cantidad inválida para {detalle.producto.nombre}.')
+                    continue
+                if cantidad < 0 or cantidad > detalle.cantidad_solicitada:
+                    errores.append(
+                        f'La cantidad aprobada de {detalle.producto.nombre} debe estar '
+                        f'entre 0 y {detalle.cantidad_solicitada}.'
+                    )
+                    continue
+                cantidades[detalle.pk] = cantidad
+
+            if not errores and not any(cantidades.values()):
+                errores.append('Debes aprobar al menos una unidad o rechazar la solicitud.')
+
+            if errores:
+                for error in errores:
+                    messages.error(request, error)
+            else:
+                with transaction.atomic():
+                    for detalle in detalles:
+                        detalle.cantidad_aprobada = cantidades[detalle.pk]
+                        detalle.save(update_fields=['cantidad_aprobada'])
+                    solicitud.estado = 'aprobada'
+                    solicitud.save(update_fields=['estado'])
+                messages.success(
+                    request,
+                    f'Solicitud #{solicitud.pk} aprobada. Ya puede despacharse.',
+                )
+                return redirect('solicitud_detail', pk=solicitud.pk)
+        else:
+            messages.error(request, 'Acción no válida.')
+
+    return render(request, 'admin/solicitud_autorizar.html', {
+        'solicitud': solicitud,
+        'detalles': detalles,
     })
+
+
+@admin_required
+def solicitud_despachar(request, pk):
+    solicitud = get_object_or_404(Solicitud.objects.select_related('sucursal'), pk=pk)
+    if request.method != 'POST':
+        return redirect('solicitud_detail', pk=solicitud.pk)
+
+    if solicitud.estado != 'aprobada':
+        messages.error(request, 'Solo se pueden despachar solicitudes aprobadas.')
+        return redirect('solicitud_detail', pk=solicitud.pk)
+
+    detalles = list(
+        solicitud.detallesolicitud_set.select_related('producto')
+        .order_by('producto__nombre')
+    )
+    if not detalles:
+        messages.error(request, 'La solicitud no tiene detalles para despachar.')
+        return redirect('solicitud_detail', pk=solicitud.pk)
+
+    try:
+        with transaction.atomic():
+            solicitud = Solicitud.objects.select_for_update().get(pk=solicitud.pk)
+            if solicitud.estado != 'aprobada':
+                raise ValueError('La solicitud ya fue procesada por otro usuario.')
+
+            detalles = list(
+                solicitud.detallesolicitud_set.select_related('producto')
+                .order_by('producto__nombre')
+            )
+            if not detalles:
+                raise ValueError('La solicitud no tiene detalles para despachar.')
+
+            movimientos = []
+            for detalle in detalles:
+                cantidad = detalle.cantidad_aprobada or 0
+                if cantidad <= 0:
+                    continue
+
+                producto = Producto.objects.select_for_update().get(pk=detalle.producto_id)
+                if producto.stock_actual < cantidad:
+                    raise ValueError(
+                        f'Stock insuficiente para {producto.nombre}: '
+                        f'disponible {producto.stock_actual}, requerido {cantidad}.'
+                    )
+
+                producto.stock_actual -= cantidad
+                producto.save(update_fields=['stock_actual'])
+
+                detalle.cantidad_despachada = cantidad
+                detalle.save(update_fields=['cantidad_despachada'])
+
+                movimientos.append(MovimientoStock(
+                    producto=producto,
+                    solicitud=solicitud,
+                    tipo='salida',
+                    cantidad=cantidad,
+                    fecha=timezone.now(),
+                    observacion=f'Despacho de solicitud #{solicitud.pk}',
+                ))
+
+            if not movimientos:
+                raise ValueError(
+                    'No hay cantidades aprobadas mayores que cero para despachar.'
+                )
+
+            MovimientoStock.objects.bulk_create(movimientos)
+            solicitud.estado = 'despachada'
+            solicitud.save(update_fields=['estado'])
+    except ValueError as error:
+        messages.error(request, str(error))
+        return redirect('solicitud_detail', pk=solicitud.pk)
+
+    messages.success(
+        request,
+        f'Solicitud #{solicitud.pk} despachada y stock actualizado correctamente.',
+    )
+    return redirect('solicitud_detail', pk=solicitud.pk)
+
+
+@login_required
+def movimientos_list(request):
+    tipo = request.GET.get('tipo', '').strip()
+    producto_id = request.GET.get('producto', '').strip()
+    desde = request.GET.get('desde', '').strip()
+    hasta = request.GET.get('hasta', '').strip()
+
+    movimientos = (
+        MovimientoStock.objects.select_related('producto', 'solicitud__sucursal')
+        .order_by('-fecha')
+    )
+    if tipo in dict(MovimientoStock.TIPO_CHOICES):
+        movimientos = movimientos.filter(tipo=tipo)
+
+    producto_seleccionado = None
+    if producto_id.isdigit():
+        producto_seleccionado = int(producto_id)
+        movimientos = movimientos.filter(producto_id=producto_seleccionado)
+
+    fecha_desde = parse_date(desde) if desde else None
+    fecha_hasta = parse_date(hasta) if hasta else None
+    if fecha_desde:
+        movimientos = movimientos.filter(fecha__date__gte=fecha_desde)
+    if fecha_hasta:
+        movimientos = movimientos.filter(fecha__date__lte=fecha_hasta)
+
+    return render(request, 'admin/movimientos.html', {
+        'movimientos': movimientos,
+        'tipos': MovimientoStock.TIPO_CHOICES,
+        'tipo_seleccionado': tipo,
+        'productos': Producto.objects.order_by('nombre'),
+        'producto_seleccionado': producto_seleccionado,
+        'desde': desde,
+        'hasta': hasta,
+    })
+
+
+@login_required
+def movimiento_crear(request):
+    tipo_inicial = request.GET.get('tipo', 'entrada')
+    if tipo_inicial not in dict(MovimientoStock.TIPO_CHOICES):
+        tipo_inicial = 'entrada'
+
+    if request.method == 'POST':
+        form = MovimientoStockForm(request.POST)
+        if form.is_valid():
+            tipo = form.cleaned_data['tipo']
+            cantidad = form.cleaned_data['cantidad']
+            try:
+                with transaction.atomic():
+                    producto = Producto.objects.select_for_update().get(
+                        pk=form.cleaned_data['producto'].pk,
+                    )
+                    if tipo == 'salida' and producto.stock_actual < cantidad:
+                        raise ValueError(
+                            f'Stock insuficiente para {producto.nombre}: '
+                            f'disponible {producto.stock_actual}, solicitado {cantidad}.'
+                        )
+
+                    movimiento = form.save(commit=False)
+                    movimiento.producto = producto
+                    movimiento.save()
+
+                    if tipo == 'entrada':
+                        producto.stock_actual += cantidad
+                    else:
+                        producto.stock_actual -= cantidad
+                    producto.save(update_fields=['stock_actual'])
+            except ValueError as error:
+                messages.error(request, str(error))
+            else:
+                messages.success(
+                    request,
+                    f'Movimiento de {movimiento.get_tipo_display().lower()} registrado correctamente.',
+                )
+                return redirect('movimientos_list')
+        else:
+            messages.error(request, 'Revisa los datos del movimiento.')
+    else:
+        form = MovimientoStockForm(initial={'fecha': timezone.now(), 'tipo': tipo_inicial})
+
+    return render(request, 'admin/movimiento_form.html', {
+        'form': form,
+        'titulo': 'Registrar movimiento de stock',
+        'cancelar_url_name': 'movimientos_list',
+    })
+
+
+@admin_required
+def movimiento_eliminar(request, pk):
+    movimiento = get_object_or_404(
+        MovimientoStock.objects.select_related('producto', 'solicitud'), pk=pk,
+    )
+
+    if movimiento.solicitud_id:
+        messages.error(
+            request,
+            'No se puede eliminar un movimiento generado por una solicitud.',
+        )
+        return redirect('movimientos_list')
+
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                producto = Producto.objects.select_for_update().get(pk=movimiento.producto_id)
+                if movimiento.tipo == 'entrada':
+                    if producto.stock_actual < movimiento.cantidad:
+                        raise ValueError(
+                            f'No se puede eliminar la entrada: el stock actual de '
+                            f'{producto.nombre} ({producto.stock_actual}) es menor que '
+                            f'la cantidad ingresada ({movimiento.cantidad}).'
+                        )
+                    producto.stock_actual -= movimiento.cantidad
+                else:
+                    producto.stock_actual += movimiento.cantidad
+                producto.save(update_fields=['stock_actual'])
+                movimiento.delete()
+        except ValueError as error:
+            messages.error(request, str(error))
+        else:
+            messages.success(
+                request,
+                'Movimiento eliminado y stock ajustado correctamente.',
+            )
+        return redirect('movimientos_list')
+
+    return render(request, 'admin/confirmar_eliminar.html', {
+        'titulo': 'Eliminar movimiento de stock',
+        'objeto': (
+            f'{movimiento.get_tipo_display()} de {movimiento.cantidad} '
+            f'x {movimiento.producto.nombre}'
+        ),
+        'detalle': 'El stock del producto se ajustará para revertir este movimiento.',
+        'cancelar_url_name': 'movimientos_list',
+    })
+
+
+# Redirecciones de compatibilidad con las rutas antiguas de ingresos/salidas.
+
+@login_required
+def ingresos_list(request):
+    return redirect('movimientos_list')
+
+
+@login_required
+def ingreso_registrar(request):
+    return redirect('movimiento_crear')
+
+
+@login_required
+def salidas_list(request):
+    return redirect('solicitudes_list')
+
+
+@login_required
+def salida_registrar(request):
+    return redirect('solicitud_crear')
+
+
+@admin_required
+def salida_autorizar(request, pk):
+    return redirect('solicitud_autorizar', pk=pk)
 
 
 @login_required

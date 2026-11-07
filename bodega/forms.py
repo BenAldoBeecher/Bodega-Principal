@@ -2,8 +2,12 @@ from django import forms
 from django.contrib.auth.models import Group, User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 
-from .models import Categoria, Producto, Proveedor, Sucursal
+from .models import (
+    Categoria, DetalleSolicitud, MovimientoStock, Producto, Proveedor,
+    Solicitud, Sucursal,
+)
 
 ROLES = [
     ('Operador', 'Operador'),
@@ -265,3 +269,94 @@ class ProductoForm(forms.ModelForm):
         if stock is not None and stock < 0:
             raise ValidationError('El stock mínimo no puede ser negativo.')
         return stock
+
+
+class SolicitudForm(forms.ModelForm):
+    class Meta:
+        model = Solicitud
+        fields = ('sucursal', 'fecha', 'observaciones')
+        labels = {
+            'sucursal': 'Sucursal',
+            'fecha': 'Fecha',
+            'observaciones': 'Observaciones',
+        }
+        widgets = {
+            'sucursal': forms.Select(attrs={'class': 'form-select'}),
+            'fecha': forms.DateTimeInput(
+                attrs={'class': 'form-control', 'type': 'datetime-local'},
+                format='%Y-%m-%dT%H:%M',
+            ),
+            'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['sucursal'].queryset = Sucursal.objects.order_by('nombre')
+        self.fields['fecha'].input_formats = [
+            '%Y-%m-%dT%H:%M', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M',
+        ]
+
+
+class DetalleSolicitudForm(forms.ModelForm):
+    class Meta:
+        model = DetalleSolicitud
+        fields = ('producto', 'cantidad_solicitada')
+        labels = {
+            'producto': 'Producto',
+            'cantidad_solicitada': 'Cantidad solicitada',
+        }
+        widgets = {
+            'producto': forms.Select(attrs={'class': 'form-select'}),
+            'cantidad_solicitada': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        productos = Producto.objects.filter(activo=True).order_by('nombre')
+        if self.instance.pk and self.instance.producto_id:
+            productos = Producto.objects.filter(
+                Q(activo=True) | Q(pk=self.instance.producto_id)
+            ).order_by('nombre')
+        self.fields['producto'].queryset = productos
+
+    def clean_cantidad_solicitada(self):
+        cantidad = self.cleaned_data.get('cantidad_solicitada')
+        if cantidad is None or cantidad <= 0:
+            raise ValidationError('La cantidad solicitada debe ser mayor que cero.')
+        return cantidad
+
+
+class MovimientoStockForm(forms.ModelForm):
+    class Meta:
+        model = MovimientoStock
+        fields = ('tipo', 'producto', 'cantidad', 'fecha', 'observacion')
+        labels = {
+            'tipo': 'Tipo de movimiento',
+            'producto': 'Producto',
+            'cantidad': 'Cantidad',
+            'fecha': 'Fecha',
+            'observacion': 'Observación',
+        }
+        widgets = {
+            'tipo': forms.Select(attrs={'class': 'form-select'}),
+            'producto': forms.Select(attrs={'class': 'form-select'}),
+            'cantidad': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
+            'fecha': forms.DateTimeInput(
+                attrs={'class': 'form-control', 'type': 'datetime-local'},
+                format='%Y-%m-%dT%H:%M',
+            ),
+            'observacion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['producto'].queryset = Producto.objects.filter(activo=True).order_by('nombre')
+        self.fields['fecha'].input_formats = [
+            '%Y-%m-%dT%H:%M', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M',
+        ]
+
+    def clean_cantidad(self):
+        cantidad = self.cleaned_data.get('cantidad')
+        if cantidad is None or cantidad <= 0:
+            raise ValidationError('La cantidad debe ser mayor que cero.')
+        return cantidad

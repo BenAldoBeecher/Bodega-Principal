@@ -1,0 +1,65 @@
+{% extends 'admin/base_admin.html' %}
+{% block title %}Autorizar solicitud #{{ solicitud.pk }} - Music Pro Bodega{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="fw-bold mb-0">Autorizar solicitud #{{ solicitud.pk }}</h4>
+        <p class="text-muted small mb-0">{{ solicitud.sucursal.nombre }} · {{ solicitud.fecha|date:"d-m-Y H:i" }}</p>
+    </div>
+    <a href="{% url 'solicitud_detail' solicitud.pk %}" class="btn btn-sm btn-outline-secondary">Volver</a>
+</div>
+
+<div class="alert alert-info py-2 small">
+    <i class="bi bi-info-circle me-1"></i>
+    Puedes aprobar cantidades menores a las solicitadas. Si rechazas la solicitud, no se descontará stock.
+</div>
+
+<form method="post" novalidate>
+    {% csrf_token %}
+    <div class="card mb-3">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Stock actual</th>
+                            <th>Solicitado</th>
+                            <th style="width: 180px;">Cantidad a aprobar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in detalles %}
+                        <tr>
+                            <td>
+                                <div class="fw-semibold">{{ d.producto.nombre }}</div>
+                                <div class="text-muted small">{{ d.producto.sku }}</div>
+                            </td>
+                            <td>
+                                {% if d.producto.stock_actual < d.cantidad_solicitada %}
+                                <span class="badge badge-alerta">{{ d.producto.stock_actual }}</span>
+                                {% else %}
+                                <span class="badge badge-ok">{{ d.producto.stock_actual }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ d.cantidad_solicitada }}</td>
+                            <td>
+                                <input type="number" name="cantidad_{{ d.pk }}" value="{{ d.valor_aprobacion }}"
+                                       min="0" max="{{ d.cantidad_solicitada }}" class="form-control form-control-sm">
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" name="accion" value="aprobar" class="btn btn-blue">Aprobar solicitud</button>
+        <button type="submit" name="accion" value="rechazar" class="btn btn-outline-danger"
+                formnovalidate onclick="return confirm('¿Rechazar esta solicitud?');">Rechazar</button>
+        <a href="{% url 'solicitud_detail' solicitud.pk %}" class="btn btn-outline-secondary">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

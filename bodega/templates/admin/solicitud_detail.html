@@ -1,0 +1,180 @@
+{% extends 'admin/base_admin.html' %}
+{% block title %}Solicitud #{{ solicitud.pk }} - Music Pro Bodega{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="fw-bold mb-0">Solicitud #{{ solicitud.pk }}</h4>
+        <p class="text-muted small mb-0">{{ solicitud.sucursal.nombre }} · {{ solicitud.fecha|date:"d-m-Y H:i" }}</p>
+    </div>
+    <div class="d-flex gap-2">
+        {% if solicitud.estado == 'pendiente' %}
+        <a href="{% url 'solicitud_editar' solicitud.id %}" class="btn btn-sm btn-outline-secondary">Editar</a>
+        <a href="{% url 'solicitud_eliminar' solicitud.id %}" class="btn btn-sm btn-outline-danger">Eliminar</a>
+        {% if es_admin %}
+        <a href="{% url 'solicitud_autorizar' solicitud.id %}" class="btn btn-sm btn-blue">Autorizar / rechazar</a>
+        {% endif %}
+        {% elif solicitud.estado == 'aprobada' and es_admin %}
+        <form method="post" action="{% url 'solicitud_despachar' solicitud.id %}" class="d-inline"
+              onsubmit="return confirm('¿Despachar la solicitud y descontar el stock?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-blue">Despachar y actualizar stock</button>
+        </form>
+        {% endif %}
+        <a href="{% url 'solicitudes_list' %}" class="btn btn-sm btn-outline-secondary">Volver</a>
+    </div>
+</div>
+
+{% if solicitud.estado == 'rechazada' %}
+<div class="alert alert-danger py-2">
+    <i class="bi bi-x-circle me-1"></i> Esta solicitud fue rechazada. No se descontará stock.
+</div>
+{% elif solicitud.estado == 'despachada' %}
+<div class="alert alert-success py-2">
+    <i class="bi bi-check-circle me-1"></i> Esta solicitud fue despachada y el stock ya fue actualizado.
+</div>
+{% endif %}
+
+<div class="card p-4 mb-4">
+    <div class="row g-3">
+        <div class="col-md-4">
+            <div class="text-muted small">Sucursal</div>
+            <div class="fw-semibold">{{ solicitud.sucursal.nombre }}</div>
+        </div>
+        <div class="col-md-4">
+            <div class="text-muted small">Fecha</div>
+            <div class="fw-semibold">{{ solicitud.fecha|date:"d-m-Y H:i" }}</div>
+        </div>
+        <div class="col-md-4">
+            <div class="text-muted small">Estado</div>
+            <div>
+                {% if solicitud.estado == 'pendiente' %}
+                <span class="badge badge-alerta">Pendiente</span>
+                {% elif solicitud.estado == 'aprobada' %}
+                <span class="badge bg-primary">Aprobada</span>
+                {% elif solicitud.estado == 'rechazada' %}
+                <span class="badge bg-danger">Rechazada</span>
+                {% else %}
+                <span class="badge badge-ok">Despachada</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="col-12">
+            <div class="text-muted small">Observaciones</div>
+            <div>{{ solicitud.observaciones|default:"Sin observaciones" }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header bg-white fw-semibold">Productos solicitados</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Categoría</th>
+                        <th>Solicitado</th>
+                        <th>Aprobado</th>
+                        <th>Despachado</th>
+                        {% if solicitud.estado == 'pendiente' %}<th class="text-end">Acciones</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in detalles %}
+                    <tr>
+                        <td>
+                            <div class="fw-semibold">{{ d.producto.nombre }}</div>
+                            <div class="text-muted small">{{ d.producto.sku }}</div>
+                        </td>
+                        <td>{{ d.producto.categoria.nombre }}</td>
+                        <td>{{ d.cantidad_solicitada }}</td>
+                        <td>{{ d.cantidad_aprobada|default_if_none:"-" }}</td>
+                        <td>{{ d.cantidad_despachada|default_if_none:"-" }}</td>
+                        {% if solicitud.estado == 'pendiente' %}
+                        <td class="text-end">
+                            <a href="{% url 'detalle_editar' d.id %}" class="btn btn-sm btn-outline-secondary">Editar</a>
+                            <a href="{% url 'detalle_eliminar' d.id %}" class="btn btn-sm btn-outline-danger">Quitar</a>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="{% if solicitud.estado == 'pendiente' %}6{% else %}5{% endif %}" class="text-center text-muted py-4">Aún no hay productos en esta solicitud</td></tr>
+                    {% endfor %}
+                </tbody>
+                {% if detalles %}
+                <tfoot>
+                    <tr class="fw-semibold">
+                        <td colspan="2">Totales</td>
+                        <td>{{ totales.solicitado }}</td>
+                        <td>{{ totales.aprobado }}</td>
+                        <td>{{ totales.despachado }}</td>
+                        {% if solicitud.estado == 'pendiente' %}<td></td>{% endif %}
+                    </tr>
+                </tfoot>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+</div>
+
+{% if solicitud.estado == 'pendiente' and detalle_form %}
+<div class="card p-4 mb-4">
+    <h6 class="fw-semibold mb-3">Agregar producto a la solicitud</h6>
+    <form method="post" action="{% url 'detalle_crear' solicitud.id %}" class="row g-2 align-items-end" novalidate>
+        {% csrf_token %}
+        <div class="col-md-7">
+            <label class="form-label small fw-semibold" for="{{ detalle_form.producto.id_for_label }}">Producto</label>
+            {{ detalle_form.producto }}
+            {% for error in detalle_form.producto.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small fw-semibold" for="{{ detalle_form.cantidad_solicitada.id_for_label }}">Cantidad</label>
+            {{ detalle_form.cantidad_solicitada }}
+            {% for error in detalle_form.cantidad_solicitada.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-blue w-100">Agregar</button>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+{% if movimientos %}
+<div class="card">
+    <div class="card-header bg-white fw-semibold">Movimientos generados por esta solicitud</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Tipo</th>
+                        <th>Producto</th>
+                        <th>Cantidad</th>
+                        <th>Observación</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in movimientos %}
+                    <tr>
+                        <td class="small">{{ m.fecha|date:"d-m-Y H:i" }}</td>
+                        <td>
+                            {% if m.tipo == 'entrada' %}
+                            <span class="badge badge-ok">Entrada</span>
+                            {% else %}
+                            <span class="badge badge-alerta">Salida</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ m.producto.nombre }}</td>
+                        <td>{{ m.cantidad }}</td>
+                        <td class="small text-muted">{{ m.observacion|default:"-" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

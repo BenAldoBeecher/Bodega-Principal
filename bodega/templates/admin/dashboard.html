@@ -89,7 +89,7 @@
         <div class="card p-3 h-100">
             <h6 class="fw-semibold"><i class="bi bi-truck me-2 text-primary"></i>Solicitudes de pedidos</h6>
             <p class="text-muted small mb-2">Revisar y autorizar salidas hacia sucursales.</p>
-            <a href="{% url 'salidas_list' %}" class="btn btn-sm btn-blue">Ver solicitudes</a>
+            <a href="{% url 'solicitudes_list' %}" class="btn btn-sm btn-blue">Ver solicitudes</a>
         </div>
     </div>
 </div>
@@ -99,14 +99,14 @@
         <div class="card p-3 h-100">
             <h6 class="fw-semibold"><i class="bi bi-box-arrow-in-down me-2 text-primary"></i>Registrar ingreso</h6>
             <p class="text-muted small mb-2">Ingreso de mercadería a la bodega.</p>
-            <a href="{% url 'ingreso_registrar' %}" class="btn btn-sm btn-blue">Registrar ingreso</a>
+            <a href="{% url 'movimiento_crear' %}" class="btn btn-sm btn-blue">Registrar ingreso</a>
         </div>
     </div>
     <div class="col-md-4">
         <div class="card p-3 h-100">
-            <h6 class="fw-semibold"><i class="bi bi-box-arrow-up me-2 text-primary"></i>Registrar salida / envío</h6>
-            <p class="text-muted small mb-2">Despacho hacia sucursales o franquicias.</p>
-            <a href="{% url 'salida_registrar' %}" class="btn btn-sm btn-blue">Registrar salida / envío</a>
+            <h6 class="fw-semibold"><i class="bi bi-box-arrow-up me-2 text-primary"></i>Registrar solicitud</h6>
+            <p class="text-muted small mb-2">Solicitud de productos desde una sucursal.</p>
+            <a href="{% url 'solicitud_crear' %}" class="btn btn-sm btn-blue">Registrar solicitud</a>
         </div>
     </div>
     <div class="col-md-4">

@@ -69,11 +69,11 @@
                 <div class="px-3 pt-3 pb-1">
                     <small class="text-muted text-uppercase fw-semibold" style="font-size:0.7rem;">Pedidos</small>
                 </div>
-                <a class="nav-link {% if request.resolver_match.url_name == 'salidas_list' %}active{% endif %}" href="{% url 'salidas_list' %}">
+                <a class="nav-link {% if 'solicitud' in request.resolver_match.url_name or 'detalle' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'solicitudes_list' %}">
                     <i class="bi bi-truck me-2"></i>Solicitudes de pedidos
                 </a>
-                <a class="nav-link {% if request.resolver_match.url_name == 'ingresos_list' %}active{% endif %}" href="{% url 'ingresos_list' %}">
-                    <i class="bi bi-box-arrow-in-down me-2"></i>Ingresos
+                <a class="nav-link {% if 'movimiento' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'movimientos_list' %}">
+                    <i class="bi bi-arrow-left-right me-2"></i>Movimientos de stock
                 </a>
 
                 {% else %}
@@ -81,11 +81,17 @@
                 <div class="px-3 pt-3 pb-1">
                     <small class="text-muted text-uppercase fw-semibold" style="font-size:0.7rem;">Operaciones</small>
                 </div>
-                <a class="nav-link {% if 'ingreso' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'ingreso_registrar' %}">
+                <a class="nav-link {% if request.resolver_match.url_name == 'movimiento_crear' %}active{% endif %}" href="{% url 'movimiento_crear' %}">
                     <i class="bi bi-box-arrow-in-down me-2"></i>Registrar ingreso
                 </a>
-                <a class="nav-link {% if 'salida' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'salida_registrar' %}">
-                    <i class="bi bi-box-arrow-up me-2"></i>Registrar salida / envío
+                <a class="nav-link {% if request.resolver_match.url_name == 'solicitud_crear' %}active{% endif %}" href="{% url 'solicitud_crear' %}">
+                    <i class="bi bi-box-arrow-up me-2"></i>Registrar solicitud
+                </a>
+                <a class="nav-link {% if 'solicitud' in request.resolver_match.url_name or 'detalle' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'solicitudes_list' %}">
+                    <i class="bi bi-truck me-2"></i>Solicitudes de pedidos
+                </a>
+                <a class="nav-link {% if 'movimiento' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'movimientos_list' %}">
+                    <i class="bi bi-arrow-left-right me-2"></i>Movimientos de stock
                 </a>
                 <a class="nav-link {% if request.resolver_match.url_name == 'stock' or 'producto' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'stock' %}">
                     <i class="bi bi-clipboard-data me-2"></i>Consultar inventario y stock

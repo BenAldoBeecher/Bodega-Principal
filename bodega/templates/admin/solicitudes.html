@@ -1,0 +1,96 @@
+{% extends 'admin/base_admin.html' %}
+{% block title %}Solicitudes - Music Pro Bodega{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="fw-bold mb-0">Solicitudes de pedidos</h4>
+        <p class="text-muted small mb-0">Pedidos de productos enviados por las sucursales.</p>
+    </div>
+    <a href="{% url 'solicitud_crear' %}" class="btn btn-blue btn-sm">
+        <i class="bi bi-plus-lg me-1"></i>Nueva solicitud
+    </a>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label small fw-semibold">Estado</label>
+                <select name="estado" class="form-select">
+                    <option value="">Todos los estados</option>
+                    {% for valor, etiqueta in estados %}
+                    <option value="{{ valor }}" {% if estado_seleccionado == valor %}selected{% endif %}>{{ etiqueta }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label small fw-semibold">Sucursal</label>
+                <select name="sucursal" class="form-select">
+                    <option value="">Todas las sucursales</option>
+                    {% for suc in sucursales %}
+                    <option value="{{ suc.id }}" {% if sucursal_seleccionada == suc.id %}selected{% endif %}>{{ suc.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-blue w-100">Filtrar</button>
+                <a href="{% url 'solicitudes_list' %}" class="btn btn-outline-secondary w-100">Limpiar</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                    <tr>
+                        <th>N°</th>
+                        <th>Fecha</th>
+                        <th>Sucursal</th>
+                        <th>Estado</th>
+                        <th>Productos</th>
+                        <th>Unidades</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in solicitudes %}
+                    <tr>
+                        <td class="fw-semibold">#{{ s.id }}</td>
+                        <td class="small">{{ s.fecha|date:"d-m-Y H:i" }}</td>
+                        <td>{{ s.sucursal.nombre }}</td>
+                        <td>
+                            {% if s.estado == 'pendiente' %}
+                            <span class="badge badge-alerta">Pendiente</span>
+                            {% elif s.estado == 'aprobada' %}
+                            <span class="badge bg-primary">Aprobada</span>
+                            {% elif s.estado == 'rechazada' %}
+                            <span class="badge bg-danger">Rechazada</span>
+                            {% else %}
+                            <span class="badge badge-ok">Despachada</span>
+                            {% endif %}
+                        </td>
+                        <td><span class="badge bg-light text-dark">{{ s.total_items }}</span></td>
+                        <td>{{ s.total_solicitado|default_if_none:0 }}</td>
+                        <td class="text-end">
+                            <a href="{% url 'solicitud_detail' s.id %}" class="btn btn-sm btn-outline-primary">Ver</a>
+                            {% if s.estado == 'pendiente' %}
+                            <a href="{% url 'solicitud_editar' s.id %}" class="btn btn-sm btn-outline-secondary">Editar</a>
+                            <a href="{% url 'solicitud_eliminar' s.id %}" class="btn btn-sm btn-outline-danger">Eliminar</a>
+                            {% if es_admin %}
+                            <a href="{% url 'solicitud_autorizar' s.id %}" class="btn btn-sm btn-blue">Autorizar</a>
+                            {% endif %}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" class="text-center text-muted py-4">Sin solicitudes registradas</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
