@@ -2,12 +2,17 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.db.models import Q
+from django.db.models import Count, F, Q
+from django.db.models.deletion import ProtectedError
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
 
 from . import data_loader as data
-from .forms import UsuarioCrearForm, UsuarioEditarForm
+from .forms import (
+    CategoriaForm, ProductoForm, ProveedorForm, SucursalForm,
+    UsuarioCrearForm, UsuarioEditarForm,
+)
+from .models import Categoria, MovimientoStock, Producto, Proveedor, Solicitud, Sucursal
 from .permisos import admin_required, es_admin
 
 
@@ -51,39 +56,317 @@ def logout_view(request):
 
 @login_required
 def dashboard(request):
-    stats = data.get_stats()
-    alertas = data.get_productos_alerta()
-    context = {
-        'stats': stats,
-        'alertas': alertas[:5],
+    stats = {
+        'total_productos': Producto.objects.count(),
+        'stock_bajo': Producto.objects.filter(stock_actual__lt=F('stock_minimo')).count(),
+        'total_ingresos': MovimientoStock.objects.filter(tipo='entrada').count(),
+        'total_salidas': MovimientoStock.objects.filter(tipo='salida').count(),
+        'total_usuarios': User.objects.count(),
     }
-    return render(request, 'admin/dashboard.html', context)
+    alertas = (
+        Producto.objects.filter(stock_actual__lt=F('stock_minimo'))
+        .select_related('categoria', 'proveedor')[:5]
+    )
+    return render(request, 'admin/dashboard.html', {'stats': stats, 'alertas': alertas})
 
 
 @login_required
 def productos_list(request):
-    productos = data.get_productos()
+    q = request.GET.get('q', '').strip()
+    categoria_id = request.GET.get('categoria', '').strip()
+    productos = Producto.objects.select_related('categoria', 'proveedor').order_by('nombre')
+    if q:
+        productos = productos.filter(Q(sku__icontains=q) | Q(nombre__icontains=q))
+
+    categoria_seleccionada = None
+    if categoria_id.isdigit():
+        categoria_seleccionada = int(categoria_id)
+        productos = productos.filter(categoria_id=categoria_seleccionada)
+
     return render(request, 'admin/productos.html', {
         'productos': productos,
+        'categorias': Categoria.objects.order_by('nombre'),
+        'q': q,
+        'categoria_seleccionada': categoria_seleccionada,
     })
 
 
 @login_required
 def producto_detail(request, pk):
-    producto = data.get_producto_by_id(pk)
-    if not producto:
-        messages.error(request, 'Producto no encontrado.')
-        return redirect('productos_list')
+    producto = get_object_or_404(
+        Producto.objects.select_related('categoria', 'proveedor'), pk=pk,
+    )
     return render(request, 'admin/producto_detail.html', {
         'producto': producto,
+        'detalles': producto.detallesolicitud_set.select_related('solicitud__sucursal').order_by('-solicitud__fecha')[:10],
+        'movimientos': producto.movimientostock_set.order_by('-fecha')[:10],
+    })
+
+
+@admin_required
+def producto_crear(request):
+    if request.method == 'POST':
+        form = ProductoForm(request.POST)
+        if form.is_valid():
+            producto = form.save()
+            messages.success(request, f'Producto "{producto.nombre}" creado correctamente.')
+            return redirect('productos_list')
+        messages.error(request, 'Revisa los datos del formulario.')
+    else:
+        form = ProductoForm()
+
+    return render(request, 'admin/producto_form.html', {
+        'form': form,
+        'titulo': 'Nuevo producto',
+        'cancelar_url_name': 'productos_list',
+    })
+
+
+@admin_required
+def producto_editar(request, pk):
+    producto = get_object_or_404(Producto, pk=pk)
+    if request.method == 'POST':
+        form = ProductoForm(request.POST, instance=producto)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Producto "{producto.nombre}" actualizado correctamente.')
+            return redirect('producto_detail', pk=producto.pk)
+        messages.error(request, 'Revisa los datos del formulario.')
+    else:
+        form = ProductoForm(instance=producto)
+
+    return render(request, 'admin/producto_form.html', {
+        'form': form,
+        'titulo': 'Editar producto',
+        'producto': producto,
+        'cancelar_url_name': 'producto_detail',
+        'cancelar_pk': producto.pk,
+    })
+
+
+@admin_required
+def producto_eliminar(request, pk):
+    producto = get_object_or_404(Producto, pk=pk)
+    if request.method == 'POST':
+        nombre = producto.nombre
+        try:
+            producto.delete()
+            messages.success(request, f'Producto "{nombre}" eliminado correctamente.')
+        except ProtectedError:
+            messages.error(request, 'No se puede eliminar el producto porque tiene solicitudes o movimientos asociados.')
+        return redirect('productos_list')
+
+    return render(request, 'admin/confirmar_eliminar.html', {
+        'titulo': 'Eliminar producto',
+        'objeto': f'{producto.sku} - {producto.nombre}',
+        'detalle': 'Si el producto tiene detalles de solicitud o movimientos de stock, no se podrá eliminar.',
+        'cancelar_url_name': 'productos_list',
     })
 
 
 @login_required
 def categorias_list(request):
-    categorias = data.get_categorias()
-    return render(request, 'admin/categorias.html', {
-        'categorias': categorias,
+    categorias = Categoria.objects.annotate(total_productos=Count('producto')).order_by('nombre')
+    return render(request, 'admin/categorias.html', {'categorias': categorias})
+
+
+@admin_required
+def categoria_crear(request):
+    if request.method == 'POST':
+        form = CategoriaForm(request.POST)
+        if form.is_valid():
+            categoria = form.save()
+            messages.success(request, f'Categoría "{categoria.nombre}" creada correctamente.')
+            return redirect('categorias_list')
+        messages.error(request, 'Revisa los datos del formulario.')
+    else:
+        form = CategoriaForm()
+
+    return render(request, 'admin/categoria_form.html', {
+        'form': form,
+        'titulo': 'Nueva categoría',
+        'cancelar_url_name': 'categorias_list',
+    })
+
+
+@admin_required
+def categoria_editar(request, pk):
+    categoria = get_object_or_404(Categoria, pk=pk)
+    if request.method == 'POST':
+        form = CategoriaForm(request.POST, instance=categoria)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Categoría "{categoria.nombre}" actualizada correctamente.')
+            return redirect('categorias_list')
+        messages.error(request, 'Revisa los datos del formulario.')
+    else:
+        form = CategoriaForm(instance=categoria)
+
+    return render(request, 'admin/categoria_form.html', {
+        'form': form,
+        'titulo': 'Editar categoría',
+        'categoria': categoria,
+        'cancelar_url_name': 'categorias_list',
+    })
+
+
+@admin_required
+def categoria_eliminar(request, pk):
+    categoria = get_object_or_404(Categoria, pk=pk)
+    if request.method == 'POST':
+        nombre = categoria.nombre
+        try:
+            categoria.delete()
+            messages.success(request, f'Categoría "{nombre}" eliminada correctamente.')
+        except ProtectedError:
+            messages.error(request, 'No se puede eliminar la categoría porque tiene productos asociados.')
+        return redirect('categorias_list')
+
+    return render(request, 'admin/confirmar_eliminar.html', {
+        'titulo': 'Eliminar categoría',
+        'objeto': categoria.nombre,
+        'detalle': 'Si la categoría tiene productos asociados, no se podrá eliminar.',
+        'cancelar_url_name': 'categorias_list',
+    })
+
+
+@login_required
+def proveedores_list(request):
+    q = request.GET.get('q', '').strip()
+    proveedores = Proveedor.objects.annotate(total_productos=Count('producto')).order_by('razon_social')
+    if q:
+        proveedores = proveedores.filter(
+            Q(razon_social__icontains=q) | Q(rut__icontains=q) | Q(email__icontains=q)
+        )
+    return render(request, 'admin/proveedores.html', {'proveedores': proveedores, 'q': q})
+
+
+@admin_required
+def proveedor_crear(request):
+    if request.method == 'POST':
+        form = ProveedorForm(request.POST)
+        if form.is_valid():
+            proveedor = form.save()
+            messages.success(request, f'Proveedor "{proveedor.razon_social}" creado correctamente.')
+            return redirect('proveedores_list')
+        messages.error(request, 'Revisa los datos del formulario.')
+    else:
+        form = ProveedorForm()
+
+    return render(request, 'admin/proveedor_form.html', {
+        'form': form,
+        'titulo': 'Nuevo proveedor',
+        'cancelar_url_name': 'proveedores_list',
+    })
+
+
+@admin_required
+def proveedor_editar(request, pk):
+    proveedor = get_object_or_404(Proveedor, pk=pk)
+    if request.method == 'POST':
+        form = ProveedorForm(request.POST, instance=proveedor)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Proveedor "{proveedor.razon_social}" actualizado correctamente.')
+            return redirect('proveedores_list')
+        messages.error(request, 'Revisa los datos del formulario.')
+    else:
+        form = ProveedorForm(instance=proveedor)
+
+    return render(request, 'admin/proveedor_form.html', {
+        'form': form,
+        'titulo': 'Editar proveedor',
+        'proveedor': proveedor,
+        'cancelar_url_name': 'proveedores_list',
+    })
+
+
+@admin_required
+def proveedor_eliminar(request, pk):
+    proveedor = get_object_or_404(Proveedor, pk=pk)
+    if request.method == 'POST':
+        nombre = proveedor.razon_social
+        try:
+            proveedor.delete()
+            messages.success(request, f'Proveedor "{nombre}" eliminado correctamente.')
+        except ProtectedError:
+            messages.error(request, 'No se puede eliminar el proveedor porque tiene productos asociados.')
+        return redirect('proveedores_list')
+
+    return render(request, 'admin/confirmar_eliminar.html', {
+        'titulo': 'Eliminar proveedor',
+        'objeto': proveedor.razon_social,
+        'detalle': 'Si el proveedor tiene productos asociados, no se podrá eliminar.',
+        'cancelar_url_name': 'proveedores_list',
+    })
+
+
+@login_required
+def sucursales_list(request):
+    q = request.GET.get('q', '').strip()
+    sucursales = Sucursal.objects.annotate(total_solicitudes=Count('solicitud')).order_by('codigo')
+    if q:
+        sucursales = sucursales.filter(Q(codigo__icontains=q) | Q(nombre__icontains=q))
+    return render(request, 'admin/sucursales.html', {'sucursales': sucursales, 'q': q})
+
+
+@admin_required
+def sucursal_crear(request):
+    if request.method == 'POST':
+        form = SucursalForm(request.POST)
+        if form.is_valid():
+            sucursal = form.save()
+            messages.success(request, f'Sucursal "{sucursal.nombre}" creada correctamente.')
+            return redirect('sucursales_list')
+        messages.error(request, 'Revisa los datos del formulario.')
+    else:
+        form = SucursalForm()
+
+    return render(request, 'admin/sucursal_form.html', {
+        'form': form,
+        'titulo': 'Nueva sucursal',
+        'cancelar_url_name': 'sucursales_list',
+    })
+
+
+@admin_required
+def sucursal_editar(request, pk):
+    sucursal = get_object_or_404(Sucursal, pk=pk)
+    if request.method == 'POST':
+        form = SucursalForm(request.POST, instance=sucursal)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Sucursal "{sucursal.nombre}" actualizada correctamente.')
+            return redirect('sucursales_list')
+        messages.error(request, 'Revisa los datos del formulario.')
+    else:
+        form = SucursalForm(instance=sucursal)
+
+    return render(request, 'admin/sucursal_form.html', {
+        'form': form,
+        'titulo': 'Editar sucursal',
+        'sucursal': sucursal,
+        'cancelar_url_name': 'sucursales_list',
+    })
+
+
+@admin_required
+def sucursal_eliminar(request, pk):
+    sucursal = get_object_or_404(Sucursal, pk=pk)
+    if request.method == 'POST':
+        nombre = sucursal.nombre
+        try:
+            sucursal.delete()
+            messages.success(request, f'Sucursal "{nombre}" eliminada correctamente.')
+        except ProtectedError:
+            messages.error(request, 'No se puede eliminar la sucursal porque tiene solicitudes asociadas.')
+        return redirect('sucursales_list')
+
+    return render(request, 'admin/confirmar_eliminar.html', {
+        'titulo': 'Eliminar sucursal',
+        'objeto': f'{sucursal.codigo} - {sucursal.nombre}',
+        'detalle': 'Si la sucursal tiene solicitudes asociadas, no se podrá eliminar.',
+        'cancelar_url_name': 'sucursales_list',
     })
 
 
@@ -254,15 +537,15 @@ def salida_autorizar(request, pk):
 
 @login_required
 def alertas(request):
-    alertas = data.get_productos_alerta()
-    return render(request, 'admin/alertas.html', {
-        'alertas': alertas,
-    })
+    alertas = (
+        Producto.objects.filter(stock_actual__lt=F('stock_minimo'))
+        .select_related('categoria', 'proveedor')
+        .order_by('nombre')
+    )
+    return render(request, 'admin/alertas.html', {'alertas': alertas})
 
 
 @login_required
 def stock(request):
-    productos = data.get_productos()
-    return render(request, 'admin/stock.html', {
-        'productos': productos,
-    })
+    productos = Producto.objects.select_related('categoria', 'proveedor').order_by('nombre')
+    return render(request, 'admin/stock.html', {'productos': productos})

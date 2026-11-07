@@ -56,9 +56,9 @@
                 <tbody>
                     {% for p in alertas %}
                     <tr>
-                        <td>{{ p.codigo }}</td>
+                        <td>{{ p.sku }}</td>
                         <td>{{ p.nombre }}</td>
-                        <td><span class="badge badge-alerta">{{ p.stock }}</span></td>
+                        <td><span class="badge badge-alerta">{{ p.stock_actual }}</span></td>
                         <td>{{ p.stock_minimo }}</td>
                     </tr>
                     {% endfor %}

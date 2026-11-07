@@ -3,6 +3,8 @@ from django.contrib.auth.models import Group, User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 
+from .models import Categoria, Producto, Proveedor, Sucursal
+
 ROLES = [
     ('Operador', 'Operador'),
     ('Administrador', 'Administrador'),
@@ -117,3 +119,149 @@ class UsuarioEditarForm(BaseUsuarioForm):
             user.save()
             self.asignar_rol(user)
         return user
+
+
+class CategoriaForm(forms.ModelForm):
+    class Meta:
+        model = Categoria
+        fields = ('nombre', 'descripcion')
+        labels = {'nombre': 'Nombre', 'descripcion': 'Descripción'}
+        widgets = {
+            'nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Guitarras'}),
+            'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+    def clean_nombre(self):
+        nombre = (self.cleaned_data.get('nombre') or '').strip()
+        if not nombre:
+            raise ValidationError('El nombre es obligatorio.')
+        categorias = Categoria.objects.filter(nombre__iexact=nombre)
+        if self.instance.pk:
+            categorias = categorias.exclude(pk=self.instance.pk)
+        if categorias.exists():
+            raise ValidationError('Ya existe una categoría con ese nombre.')
+        return nombre
+
+
+class ProveedorForm(forms.ModelForm):
+    class Meta:
+        model = Proveedor
+        fields = ('rut', 'razon_social', 'email', 'telefono', 'activo')
+        labels = {
+            'rut': 'RUT',
+            'razon_social': 'Razón social',
+            'email': 'Correo electrónico',
+            'telefono': 'Teléfono',
+            'activo': 'Proveedor activo',
+        }
+        widgets = {
+            'rut': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '12.345.678-9'}),
+            'razon_social': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Empresa S.A.'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'contacto@empresa.cl'}),
+            'telefono': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '+56 9 1234 5678'}),
+            'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def clean_rut(self):
+        rut = (self.cleaned_data.get('rut') or '').strip()
+        if rut:
+            proveedores = Proveedor.objects.filter(rut__iexact=rut)
+            if self.instance.pk:
+                proveedores = proveedores.exclude(pk=self.instance.pk)
+            if proveedores.exists():
+                raise ValidationError('Ya existe un proveedor con ese RUT.')
+        return rut
+
+    def clean_email(self):
+        email = (self.cleaned_data.get('email') or '').strip()
+        if email:
+            from django.core.validators import validate_email
+            validate_email(email)
+        return email
+
+
+class SucursalForm(forms.ModelForm):
+    class Meta:
+        model = Sucursal
+        fields = ('codigo', 'nombre', 'direccion', 'activa')
+        labels = {
+            'codigo': 'Código',
+            'nombre': 'Nombre',
+            'direccion': 'Dirección',
+            'activa': 'Sucursal activa',
+        }
+        widgets = {
+            'codigo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'SUC-01'}),
+            'nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Sucursal Centro'}),
+            'direccion': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Av. Principal 123'}),
+            'activa': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def clean_codigo(self):
+        codigo = (self.cleaned_data.get('codigo') or '').strip().upper()
+        if not codigo:
+            raise ValidationError('El código es obligatorio.')
+        sucursales = Sucursal.objects.filter(codigo__iexact=codigo)
+        if self.instance.pk:
+            sucursales = sucursales.exclude(pk=self.instance.pk)
+        if sucursales.exists():
+            raise ValidationError('Ya existe una sucursal con ese código.')
+        return codigo
+
+
+class ProductoForm(forms.ModelForm):
+    class Meta:
+        model = Producto
+        fields = (
+            'sku', 'nombre', 'categoria', 'proveedor', 'precio',
+            'stock_actual', 'stock_minimo', 'activo',
+        )
+        labels = {
+            'sku': 'SKU',
+            'nombre': 'Nombre',
+            'categoria': 'Categoría',
+            'proveedor': 'Proveedor',
+            'precio': 'Precio',
+            'stock_actual': 'Stock actual',
+            'stock_minimo': 'Stock mínimo',
+            'activo': 'Producto activo',
+        }
+        widgets = {
+            'sku': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'SKU-00000001'}),
+            'nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Guitarra eléctrica'}),
+            'categoria': forms.Select(attrs={'class': 'form-select'}),
+            'proveedor': forms.Select(attrs={'class': 'form-select'}),
+            'precio': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
+            'stock_actual': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
+            'stock_minimo': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
+            'activo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def clean_sku(self):
+        sku = (self.cleaned_data.get('sku') or '').strip().upper()
+        if not sku:
+            raise ValidationError('El SKU es obligatorio.')
+        productos = Producto.objects.filter(sku__iexact=sku)
+        if self.instance.pk:
+            productos = productos.exclude(pk=self.instance.pk)
+        if productos.exists():
+            raise ValidationError('Ya existe un producto con ese SKU.')
+        return sku
+
+    def clean_precio(self):
+        precio = self.cleaned_data.get('precio')
+        if precio is not None and precio <= 0:
+            raise ValidationError('El precio debe ser mayor que cero.')
+        return precio
+
+    def clean_stock_actual(self):
+        stock = self.cleaned_data.get('stock_actual')
+        if stock is not None and stock < 0:
+            raise ValidationError('El stock actual no puede ser negativo.')
+        return stock
+
+    def clean_stock_minimo(self):
+        stock = self.cleaned_data.get('stock_minimo')
+        if stock is not None and stock < 0:
+            raise ValidationError('El stock mínimo no puede ser negativo.')
+        return stock

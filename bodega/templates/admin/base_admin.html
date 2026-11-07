@@ -46,6 +46,12 @@
                 <a class="nav-link {% if request.resolver_match.url_name == 'categorias_list' %}active{% endif %}" href="{% url 'categorias_list' %}">
                     <i class="bi bi-tags me-2"></i>Categorías
                 </a>
+                <a class="nav-link {% if 'proveedor' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'proveedores_list' %}">
+                    <i class="bi bi-truck-front me-2"></i>Proveedores
+                </a>
+                <a class="nav-link {% if 'sucursal' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'sucursales_list' %}">
+                    <i class="bi bi-shop me-2"></i>Sucursales
+                </a>
                 <a class="nav-link {% if request.resolver_match.url_name == 'stock' %}active{% endif %}" href="{% url 'stock' %}">
                     <i class="bi bi-clipboard-data me-2"></i>Consultar stock
                 </a>

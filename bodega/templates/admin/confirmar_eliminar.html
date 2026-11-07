@@ -1,0 +1,25 @@
+{% extends 'admin/base_admin.html' %}
+{% block title %}{{ titulo }} - Music Pro Bodega{% endblock %}
+{% block content %}
+<div class="col-lg-6">
+    <div class="card p-4">
+        <h5 class="fw-bold mb-3">{{ titulo }}</h5>
+        <p class="mb-1">Estás a punto de eliminar:</p>
+        <p class="fw-semibold mb-3">{{ objeto }}</p>
+        <div class="alert alert-warning py-2 small">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            {{ detalle }} Esta acción no se puede deshacer.
+        </div>
+
+        <form method="post" class="d-flex gap-2">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">Sí, eliminar</button>
+            {% if cancelar_pk %}
+            <a href="{% url cancelar_url_name cancelar_pk %}" class="btn btn-outline-secondary">Cancelar</a>
+            {% else %}
+            <a href="{% url cancelar_url_name %}" class="btn btn-outline-secondary">Cancelar</a>
+            {% endif %}
+        </form>
+    </div>
+</div>
+{% endblock %}
