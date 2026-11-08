@@ -907,47 +907,65 @@ def movimientos_list(request):
 
 @login_required
 def movimiento_crear(request):
+    usuario_admin = es_admin(request.user)
     tipo_inicial = request.GET.get('tipo', 'entrada')
+    if not usuario_admin:
+        tipo_inicial = 'entrada'
     if tipo_inicial not in dict(MovimientoStock.TIPO_CHOICES):
         tipo_inicial = 'entrada'
 
     if request.method == 'POST':
-        form = MovimientoStockForm(request.POST)
-        if form.is_valid():
-            tipo = form.cleaned_data['tipo']
-            cantidad = form.cleaned_data['cantidad']
-            try:
-                with transaction.atomic():
-                    producto = Producto.objects.select_for_update().get(
-                        pk=form.cleaned_data['producto'].pk,
-                    )
-                    if tipo == 'salida' and producto.stock_actual < cantidad:
-                        raise ValueError(
-                            f'Stock insuficiente para {producto.nombre}: '
-                            f'disponible {producto.stock_actual}, solicitado {cantidad}.'
-                        )
-
-                    movimiento = form.save(commit=False)
-                    movimiento.producto = producto
-                    movimiento.save()
-
-                    if tipo == 'entrada':
-                        producto.stock_actual += cantidad
-                    else:
-                        producto.stock_actual -= cantidad
-                    producto.save(update_fields=['stock_actual'])
-            except ValueError as error:
-                messages.error(request, str(error))
-            else:
-                messages.success(
-                    request,
-                    f'Movimiento de {movimiento.get_tipo_display().lower()} registrado correctamente.',
-                )
-                return redirect('movimientos_list')
+        tipo_solicitado = request.POST.get('tipo')
+        if not usuario_admin and tipo_solicitado != 'entrada':
+            messages.error(
+                request,
+                'Solo el administrador puede registrar salidas directas. '
+                'Para enviar productos a una sucursal crea una solicitud de pedido.',
+            )
+            form = MovimientoStockForm(
+                initial={'fecha': timezone.now(), 'tipo': 'entrada'},
+            )
         else:
-            messages.error(request, 'Revisa los datos del movimiento.')
+            form = MovimientoStockForm(request.POST)
+            if form.is_valid():
+                tipo = form.cleaned_data['tipo']
+                cantidad = form.cleaned_data['cantidad']
+                try:
+                    with transaction.atomic():
+                        producto = Producto.objects.select_for_update().get(
+                            pk=form.cleaned_data['producto'].pk,
+                        )
+                        if tipo == 'salida' and producto.stock_actual < cantidad:
+                            raise ValueError(
+                                f'Stock insuficiente para {producto.nombre}: '
+                                f'disponible {producto.stock_actual}, solicitado {cantidad}.'
+                            )
+
+                        movimiento = form.save(commit=False)
+                        movimiento.producto = producto
+                        movimiento.save()
+
+                        if tipo == 'entrada':
+                            producto.stock_actual += cantidad
+                        else:
+                            producto.stock_actual -= cantidad
+                        producto.save(update_fields=['stock_actual'])
+                except ValueError as error:
+                    messages.error(request, str(error))
+                else:
+                    messages.success(
+                        request,
+                        f'Movimiento de {movimiento.get_tipo_display().lower()} registrado correctamente.',
+                    )
+                    return redirect('movimientos_list')
+            else:
+                messages.error(request, 'Revisa los datos del movimiento.')
     else:
         form = MovimientoStockForm(initial={'fecha': timezone.now(), 'tipo': tipo_inicial})
+
+    if not usuario_admin:
+        form.fields['tipo'].choices = [('entrada', 'Entrada')]
+        form.fields['tipo'].initial = 'entrada'
 
     return render(request, 'admin/movimiento_form.html', {
         'form': form,
