@@ -91,6 +91,7 @@
                         <td class="small text-muted">{{ m.observacion|default:"-" }}</td>
                         {% if es_admin and not m.solicitud %}
                         <td class="text-end">
+                            <a href="{% url 'movimiento_editar' m.id %}" class="btn btn-sm btn-outline-secondary">Editar</a>
                             <a href="{% url 'movimiento_eliminar' m.id %}" class="btn btn-sm btn-outline-danger">Eliminar</a>
                         </td>
                         {% elif es_admin %}

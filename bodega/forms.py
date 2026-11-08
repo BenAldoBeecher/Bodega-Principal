@@ -360,3 +360,26 @@ class MovimientoStockForm(forms.ModelForm):
         if cantidad is None or cantidad <= 0:
             raise ValidationError('La cantidad debe ser mayor que cero.')
         return cantidad
+
+
+class MovimientoStockEditarForm(forms.ModelForm):
+    class Meta:
+        model = MovimientoStock
+        fields = ('fecha', 'observacion')
+        labels = {
+            'fecha': 'Fecha',
+            'observacion': 'Observación',
+        }
+        widgets = {
+            'fecha': forms.DateTimeInput(
+                attrs={'class': 'form-control', 'type': 'datetime-local'},
+                format='%Y-%m-%dT%H:%M',
+            ),
+            'observacion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['fecha'].input_formats = [
+            '%Y-%m-%dT%H:%M', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M',
+        ]

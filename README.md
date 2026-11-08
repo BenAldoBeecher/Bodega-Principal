@@ -16,6 +16,7 @@ La aplicación permite administrar el inventario, mantener usuarios con roles, g
 - Aprobación o rechazo de solicitudes con cantidades aprobadas.
 - Despacho de solicitudes con descuento automático de stock y generación de movimientos.
 - Registro de entradas y salidas directas de stock.
+- Edición de movimientos directos (fecha y observación).
 - Validación de stock insuficiente y reversión de stock al eliminar movimientos directos.
 - Alertas de productos bajo el stock mínimo.
 - Página de reportes con las **20 consultas ORM** de la guía.
@@ -135,6 +136,7 @@ El campo `username` corresponde al correo electrónico. Las contraseñas se alma
 - Autorizar o rechazar solicitudes de pedido.
 - Despachar solicitudes aprobadas, descontando stock.
 - Registrar entradas y salidas directas de stock.
+- Editar movimientos directos (fecha y observación).
 - Eliminar movimientos directos, revirtiendo el stock.
 - Consultar inventario, alertas, movimientos y reportes.
 
@@ -188,6 +190,7 @@ Los movimientos generados por una solicitud no se pueden eliminar manualmente, p
 | `/solicitudes/<id>/` | Detalle, autorización y despacho |
 | `/movimientos/` | Historial de movimientos de stock |
 | `/movimientos/crear/` | Registrar entrada o salida directa |
+| `/movimientos/<id>/editar/` | Editar fecha y observación de un movimiento directo |
 | `/reportes/` | Página con las 20 consultas ORM |
 | `/alertas/` | Productos bajo el stock mínimo |
 | `/stock/` | Consulta de stock |
@@ -219,7 +222,7 @@ Todas las consultas usan el ORM de Django: `filter`, `annotate`, `aggregate`, `v
 ```text
 musicpro_bodega/              Configuración del proyecto Django
   settings.py                 MySQL, autenticación, zona horaria, estáticos
-  urls.py                     Rutas generales y Django Admin
+  urls.py                     Rutas generales del proyecto
 bodega/
   models.py                   Modelos alineados al esquema de la bodega
   views.py                    Autenticación, CRUD, solicitudes y movimientos
@@ -228,7 +231,7 @@ bodega/
   permisos.py                 Helpers y decorador de roles
   context_processors.py       Expone el rol a las plantillas
   urls.py                     Rutas de la aplicación
-  admin.py                    Registro opcional en Django Admin
+  admin.py                    Registro legado de Django Admin (ruta deshabilitada)
   management/commands/
     seed_bodega.py            Generador de datos de prueba
   templates/admin/            Plantillas de la interfaz web
@@ -260,7 +263,7 @@ python manage.py runserver
 
 ## Nota sobre Django Admin
 
-El proyecto incluye Django Admin (`/admin/`) como herramienta de apoyo para revisar datos, pero la interfaz evaluada de la E3 es la aplicación web propia: login, dashboard, mantenedores, solicitudes, movimientos y reportes.
+La ruta `/admin/` está deshabilitada en esta entrega. Toda la gestión se realiza desde la interfaz web propia: login, dashboard, mantenedores, solicitudes, movimientos y reportes. El archivo `bodega/admin.py` se conserva como registro legado de la Evaluación 2, pero no está expuesto en las rutas del proyecto.
 
 ---
 

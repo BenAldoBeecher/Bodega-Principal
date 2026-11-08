@@ -11,8 +11,9 @@ from django.utils.dateparse import parse_date
 from django.utils.http import url_has_allowed_host_and_scheme
 
 from .forms import (
-    CategoriaForm, DetalleSolicitudForm, MovimientoStockForm, ProductoForm,
-    ProveedorForm, SolicitudForm, SucursalForm, UsuarioCrearForm, UsuarioEditarForm,
+    CategoriaForm, DetalleSolicitudForm, MovimientoStockEditarForm,
+    MovimientoStockForm, ProductoForm, ProveedorForm, SolicitudForm,
+    SucursalForm, UsuarioCrearForm, UsuarioEditarForm,
 )
 from .models import (
     Categoria, DetalleSolicitud, MovimientoStock, Producto, Proveedor,
@@ -970,6 +971,36 @@ def movimiento_crear(request):
     return render(request, 'admin/movimiento_form.html', {
         'form': form,
         'titulo': 'Registrar movimiento de stock',
+        'cancelar_url_name': 'movimientos_list',
+    })
+
+
+@admin_required
+def movimiento_editar(request, pk):
+    movimiento = get_object_or_404(
+        MovimientoStock.objects.select_related('producto', 'solicitud'), pk=pk,
+    )
+    if movimiento.solicitud_id:
+        messages.error(
+            request,
+            'No se puede editar un movimiento generado por una solicitud.',
+        )
+        return redirect('movimientos_list')
+
+    if request.method == 'POST':
+        form = MovimientoStockEditarForm(request.POST, instance=movimiento)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Movimiento actualizado correctamente.')
+            return redirect('movimientos_list')
+        messages.error(request, 'Revisa los datos del movimiento.')
+    else:
+        form = MovimientoStockEditarForm(instance=movimiento)
+
+    return render(request, 'admin/movimiento_editar.html', {
+        'form': form,
+        'titulo': f'Editar movimiento #{movimiento.pk}',
+        'movimiento': movimiento,
         'cancelar_url_name': 'movimientos_list',
     })
 

@@ -63,6 +63,7 @@ urlpatterns = [
     # Movimientos de stock
     path('movimientos/', views.movimientos_list, name='movimientos_list'),
     path('movimientos/crear/', views.movimiento_crear, name='movimiento_crear'),
+    path('movimientos/<int:pk>/editar/', views.movimiento_editar, name='movimiento_editar'),
     path('movimientos/<int:pk>/eliminar/', views.movimiento_eliminar, name='movimiento_eliminar'),
 
     # Rutas antiguas (compatibilidad): redirigen al flujo nuevo.
