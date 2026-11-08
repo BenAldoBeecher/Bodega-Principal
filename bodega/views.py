@@ -21,7 +21,7 @@ from .models import (
     Solicitud, Sucursal,
 )
 from .permisos import admin_required, es_admin
-from .reportes import REPORTES, obtener_reporte
+from .reportes import REPORTES, obtener_reporte, obtener_resumen
 
 ROLES = [
     ('Operador', 'Operador'),
@@ -1624,11 +1624,16 @@ def stock(request):
 
 @login_required
 def reportes(request):
-    try:
-        reporte_id = int(request.GET.get('reporte', '1'))
-    except (TypeError, ValueError):
-        reporte_id = 1
+    vista = request.GET.get('vista', 'resumen')
+    if 'reporte' in request.GET or vista == 'consultas':
+        try:
+            reporte_id = int(request.GET.get('reporte', '1'))
+        except (TypeError, ValueError):
+            reporte_id = 1
+        contexto = obtener_reporte(reporte_id, request.GET)
+        contexto['vista'] = 'consultas'
+    else:
+        contexto = obtener_resumen(request.GET)
 
-    contexto = obtener_reporte(reporte_id, request.GET)
     contexto['reportes'] = REPORTES
     return render(request, 'admin/reportes.html', contexto)

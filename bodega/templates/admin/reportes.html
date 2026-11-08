@@ -1,9 +1,306 @@
 {% extends 'admin/base_admin.html' %}
 {% block title %}Reportes ORM - Music Pro Bodega{% endblock %}
+
+{% block extra_css %}
+<style>
+    .report-kpi {
+        border: 1px solid #eef2f7;
+        transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .report-kpi:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(15, 23, 42, .08);
+    }
+    .kpi-icon {
+        width: 46px;
+        height: 46px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        font-size: 1.25rem;
+        flex: 0 0 auto;
+    }
+    .kpi-blue { background: #e8f0fe; color: #1e4d8c; }
+    .kpi-red { background: #fef2f2; color: #b91c1c; }
+    .kpi-green { background: #f0fdf4; color: #15803d; }
+    .kpi-purple { background: #faf5ff; color: #7e22ce; }
+    .chart-box {
+        position: relative;
+        height: 245px;
+    }
+    .report-table th {
+        font-size: .75rem;
+        text-transform: uppercase;
+        letter-spacing: .03em;
+        color: #94a3b8;
+        border-bottom-color: #eef2f7;
+    }
+    .report-table td {
+        font-size: .875rem;
+        border-bottom-color: #f1f5f9;
+    }
+    .report-table tbody tr:last-child td {
+        border-bottom: 0;
+    }
+    .nav-tabs .nav-link {
+        color: #64748b;
+        border: 0;
+        border-bottom: 2px solid transparent;
+        font-weight: 600;
+        font-size: .9rem;
+    }
+    .nav-tabs .nav-link:hover {
+        color: #1e4d8c;
+    }
+    .nav-tabs .nav-link.active {
+        color: #1e4d8c;
+        background: transparent;
+        border-bottom-color: #1e4d8c;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+        <h4 class="fw-bold mb-0">Reportes de Bodega</h4>
+        <p class="text-muted small mb-0">Análisis de inventario, solicitudes y movimientos.</p>
+    </div>
+    {% if vista == 'resumen' %}
+    <form method="get" class="d-flex align-items-center gap-2">
+        <input type="hidden" name="vista" value="resumen">
+        <label class="small text-muted mb-0" for="periodo">Período:</label>
+        <select name="periodo" id="periodo" class="form-select form-select-sm" onchange="this.form.submit()">
+            {% for valor, etiqueta in periodos.items %}
+            <option value="{{ valor }}" {% if periodo == valor %}selected{% endif %}>{{ etiqueta }}</option>
+            {% endfor %}
+        </select>
+    </form>
+    {% endif %}
+</div>
+
+<ul class="nav nav-tabs mb-4">
+    <li class="nav-item">
+        <a class="nav-link {% if vista == 'resumen' %}active{% endif %}" href="{% url 'reportes' %}">
+            <i class="bi bi-grid-1x2 me-1"></i>Resumen visual
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if vista == 'consultas' %}active{% endif %}" href="{% url 'reportes' %}?vista=consultas">
+            <i class="bi bi-list-check me-1"></i>Consultas ORM (20)
+        </a>
+    </li>
+</ul>
+
+{% if vista == 'resumen' %}
+<div class="row g-3 mb-4">
+    <div class="col-xl-3 col-md-6">
+        <div class="card report-kpi h-100">
+            <div class="card-body d-flex align-items-start gap-3">
+                <div class="kpi-icon kpi-blue"><i class="bi bi-box-seam"></i></div>
+                <div>
+                    <div class="text-muted small">Productos registrados</div>
+                    <div class="fs-3 fw-bold">{{ total_productos_texto }}</div>
+                    <div class="small text-muted">Total en inventario</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card report-kpi h-100">
+            <div class="card-body d-flex align-items-start gap-3">
+                <div class="kpi-icon kpi-red"><i class="bi bi-exclamation-triangle"></i></div>
+                <div>
+                    <div class="text-muted small">Stock crítico</div>
+                    <div class="fs-3 fw-bold text-danger">{{ stock_critico_texto }}</div>
+                    <div class="small text-muted">Productos bajo el mínimo</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card report-kpi h-100">
+            <div class="card-body d-flex align-items-start gap-3">
+                <div class="kpi-icon kpi-green"><i class="bi bi-clipboard-check"></i></div>
+                <div>
+                    <div class="text-muted small">Solicitudes pendientes</div>
+                    <div class="fs-3 fw-bold" style="color:#15803d;">{{ solicitudes_pendientes_texto }}</div>
+                    <div class="small text-muted">Requieren atención</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card report-kpi h-100">
+            <div class="card-body d-flex align-items-start gap-3">
+                <div class="kpi-icon kpi-purple"><i class="bi bi-cash-stack"></i></div>
+                <div>
+                    <div class="text-muted small">Valor del inventario</div>
+                    <div class="fs-4 fw-bold">{{ valor_inventario_texto }}</div>
+                    <div class="small text-muted">Stock × precio</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-xl-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold mb-0">Inventario por categoría</h6>
+                    <span class="badge bg-light text-dark">Productos</span>
+                </div>
+                <div class="chart-box">
+                    <canvas id="chartCategorias"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold mb-0">Solicitudes por estado</h6>
+                    <span class="badge bg-light text-dark">Solicitudes</span>
+                </div>
+                <div class="chart-box">
+                    <canvas id="chartSolicitudes"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold mb-0">Movimientos de stock</h6>
+                    <span class="badge bg-light text-dark">{{ periodo_label }}</span>
+                </div>
+                <div class="chart-box">
+                    <canvas id="chartMovimientos"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-xl-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold mb-0">
+                        <i class="bi bi-exclamation-triangle text-danger me-2"></i>Productos con stock bajo
+                    </h6>
+                    <a href="?vista=consultas&amp;reporte=3" class="small text-decoration-none">
+                        Ver reporte 3 <i class="bi bi-chevron-right"></i>
+                    </a>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle report-table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Categoría</th>
+                                <th class="text-end">Stock</th>
+                                <th class="text-end">Stock mínimo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in productos_stock_bajo %}
+                            <tr>
+                                <td class="fw-semibold">{{ p.nombre }}</td>
+                                <td class="text-muted">{{ p.categoria.nombre }}</td>
+                                <td class="text-end">
+                                    <span class="badge bg-danger-subtle text-danger-emphasis">{{ p.stock_actual }}</span>
+                                </td>
+                                <td class="text-end text-muted">{{ p.stock_minimo }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-3">Sin productos bajo el mínimo.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold mb-0">
+                        <i class="bi bi-clipboard-check text-primary me-2"></i>Últimas solicitudes
+                    </h6>
+                    <a href="{% url 'solicitudes_list' %}" class="small text-decoration-none">
+                        Ver todas <i class="bi bi-chevron-right"></i>
+                    </a>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle report-table mb-0">
+                        <thead>
+                            <tr>
+                                <th>N°</th>
+                                <th>Sucursal</th>
+                                <th>Fecha</th>
+                                <th class="text-center">Ítems</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for s in ultimas_solicitudes %}
+                            <tr>
+                                <td class="fw-semibold">#{{ s.id }}</td>
+                                <td>{{ s.sucursal.nombre }}</td>
+                                <td class="text-muted">{{ s.fecha|date:"d/m/Y" }}</td>
+                                <td class="text-center">{{ s.items }}</td>
+                                <td>
+                                    {% if s.estado == 'pendiente' %}
+                                    <span class="badge bg-warning-subtle text-warning-emphasis">Pendiente</span>
+                                    {% elif s.estado == 'aprobada' %}
+                                    <span class="badge bg-success-subtle text-success-emphasis">Aprobada</span>
+                                    {% elif s.estado == 'rechazada' %}
+                                    <span class="badge bg-danger-subtle text-danger-emphasis">Rechazada</span>
+                                    {% else %}
+                                    <span class="badge bg-primary-subtle text-primary-emphasis">Despachada</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-3">Sin solicitudes registradas.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+            <h6 class="fw-bold mb-1">¿Necesitas el detalle de una consulta?</h6>
+            <p class="text-muted small mb-0">
+                Las 20 consultas ORM siguen disponibles con filtros, tablas y evidencia de la consulta utilizada.
+            </p>
+        </div>
+        <a href="?vista=consultas" class="btn btn-blue">
+            <i class="bi bi-list-check me-1"></i>Ver las 20 consultas ORM
+        </a>
+    </div>
+</div>
+
+{% else %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h4 class="fw-bold mb-0">Reportes con Django ORM</h4>
+        <h5 class="fw-bold mb-0">Consultas con Django ORM</h5>
         <p class="text-muted small mb-0">20 consultas sobre productos, proveedores, sucursales, solicitudes y movimientos.</p>
     </div>
     <span class="badge bg-primary">Django ORM</span>
@@ -158,4 +455,162 @@
         {% endif %}
     </div>
 </div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if vista == 'resumen' %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{{ inventario_categoria|json_script:"inventario-categoria-data" }}
+{{ solicitudes_estado|json_script:"solicitudes-estado-data" }}
+{{ movimientos_periodo|json_script:"movimientos-periodo-data" }}
+<script>
+    (function () {
+        const inventario = JSON.parse(document.getElementById('inventario-categoria-data').textContent);
+        const estados = JSON.parse(document.getElementById('solicitudes-estado-data').textContent);
+        const movimientos = JSON.parse(document.getElementById('movimientos-periodo-data').textContent);
+        const totalProductos = "{{ total_productos_texto|escapejs }}";
+
+        if (typeof Chart === 'undefined') {
+            document.querySelectorAll('.chart-box').forEach(function (box) {
+                box.innerHTML = '<div class="text-muted small p-3">No se pudo cargar Chart.js. Revisa la conexión.</div>';
+            });
+            return;
+        }
+
+        const azul = '#2563eb';
+        const verde = '#16a34a';
+        const rojo = '#dc2626';
+        const morado = '#9333ea';
+        const gris = '#94a3b8';
+
+        const centro = {
+            id: 'centro',
+            afterDraw: function (chart) {
+                if (chart.config.type !== 'doughnut') {
+                    return;
+                }
+                const area = chart.chartArea;
+                const x = (area.left + area.right) / 2;
+                const y = (area.top + area.bottom) / 2;
+                const ctx = chart.ctx;
+                ctx.save();
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#0f172a';
+                ctx.font = '700 18px system-ui, -apple-system, sans-serif';
+                ctx.fillText(totalProductos, x, y - 6);
+                ctx.fillStyle = '#64748b';
+                ctx.font = '11px system-ui, -apple-system, sans-serif';
+                ctx.fillText('Productos', x, y + 14);
+                ctx.restore();
+            },
+        };
+
+        new Chart(document.getElementById('chartCategorias'), {
+            type: 'doughnut',
+            data: {
+                labels: inventario.map(function (item) { return item.label; }),
+                datasets: [{
+                    data: inventario.map(function (item) { return item.total; }),
+                    backgroundColor: [azul, verde, '#eab308', morado, gris, '#0ea5e9'],
+                    borderWidth: 0,
+                }],
+            },
+            options: {
+                cutout: '65%',
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: { usePointStyle: true, boxWidth: 8, font: { size: 11 } },
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function (ctx) { return ctx.label + ': ' + ctx.parsed; },
+                        },
+                    },
+                },
+            },
+            plugins: [centro],
+        });
+
+        new Chart(document.getElementById('chartSolicitudes'), {
+            type: 'bar',
+            data: {
+                labels: estados.map(function (item) { return item.label; }),
+                datasets: [{
+                    data: estados.map(function (item) { return item.total; }),
+                    backgroundColor: [azul, verde, rojo, morado],
+                    borderRadius: 6,
+                    maxBarThickness: 42,
+                }],
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { precision: 0 },
+                        grid: { color: '#eef2f7' },
+                    },
+                    x: { grid: { display: false } },
+                },
+            },
+        });
+
+        new Chart(document.getElementById('chartMovimientos'), {
+            type: 'line',
+            data: {
+                labels: movimientos.labels,
+                datasets: [
+                    {
+                        label: 'Entradas',
+                        data: movimientos.entradas,
+                        borderColor: verde,
+                        backgroundColor: 'rgba(22, 163, 74, 0.08)',
+                        fill: true,
+                        tension: 0.35,
+                        pointRadius: 0,
+                        borderWidth: 2,
+                    },
+                    {
+                        label: 'Salidas',
+                        data: movimientos.salidas,
+                        borderColor: azul,
+                        backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                        fill: true,
+                        tension: 0.35,
+                        pointRadius: 0,
+                        borderWidth: 2,
+                    },
+                ],
+            },
+            options: {
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        align: 'end',
+                        labels: { usePointStyle: true, boxWidth: 8, font: { size: 11 } },
+                    },
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { precision: 0 },
+                        grid: { color: '#eef2f7' },
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { maxTicksLimit: 8, font: { size: 10 } },
+                    },
+                },
+            },
+        });
+    })();
+</script>
+{% endif %}
 {% endblock %}

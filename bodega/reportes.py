@@ -2,6 +2,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.db.models import Avg, Count, DecimalField, ExpressionWrapper, F, Q, Sum
+from django.db.models.functions import TruncDate
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 
@@ -133,11 +134,23 @@ REPORTES = [
     },
 ]
 
+PERIODOS = {
+    '7': 'Últimos 7 días',
+    '30': 'Últimos 30 días',
+    '90': 'Últimos 90 días',
+}
+
 
 def _moneda(valor):
     if valor is None:
         return '$0'
     return '$' + f'{valor:,.0f}'.replace(',', '.')
+
+
+def _numero(valor):
+    if valor is None:
+        return '0'
+    return f'{valor:,.0f}'.replace(',', '.')
 
 
 def _fecha(valor):
@@ -583,4 +596,119 @@ def obtener_reporte(reporte_id, params):
             'sucursales': sucursales,
             'solicitudes': solicitudes,
         },
+    }
+
+
+def obtener_resumen(params):
+    """Datos del panel visual de reportes, calculados con el ORM."""
+    periodo = params.get('periodo', '30')
+    if periodo not in PERIODOS:
+        periodo = '30'
+
+    dias = int(periodo)
+    fin = timezone.now()
+    inicio = fin - timedelta(days=dias - 1)
+
+    valor_expr = ExpressionWrapper(
+        F('precio') * F('stock_actual'),
+        output_field=DecimalField(max_digits=18, decimal_places=2),
+    )
+    total_productos = Producto.objects.count()
+    stock_critico = Producto.objects.filter(stock_actual__lt=F('stock_minimo')).count()
+    solicitudes_pendientes = Solicitud.objects.filter(estado='pendiente').count()
+    valor_inventario = (
+        Producto.objects.aggregate(total=Sum(valor_expr))['total'] or Decimal('0')
+    )
+
+    categorias = list(
+        Categoria.objects.annotate(total=Count('producto'))
+        .filter(total__gt=0)
+        .order_by('-total', 'nombre')
+    )
+    if len(categorias) > 5:
+        principales = categorias[:4]
+        otros_total = sum(categoria.total for categoria in categorias[4:])
+        inventario_categoria = [
+            {'label': categoria.nombre, 'total': categoria.total}
+            for categoria in principales
+        ]
+        inventario_categoria.append({'label': 'Otros', 'total': otros_total})
+    else:
+        inventario_categoria = [
+            {'label': categoria.nombre, 'total': categoria.total}
+            for categoria in categorias
+        ]
+
+    conteos_estado = {
+        fila['estado']: fila['total']
+        for fila in Solicitud.objects.values('estado').annotate(total=Count('id'))
+    }
+    solicitudes_estado = [
+        {
+            'estado': clave,
+            'label': etiqueta,
+            'total': conteos_estado.get(clave, 0),
+        }
+        for clave, etiqueta in Solicitud.ESTADO_CHOICES
+    ]
+
+    movimientos_qs = (
+        MovimientoStock.objects.filter(fecha__gte=inicio, fecha__lte=fin)
+        .annotate(dia=TruncDate('fecha'))
+        .values('dia', 'tipo')
+        .annotate(total=Sum('cantidad'))
+        .order_by('dia')
+    )
+    dias_rango = [
+        inicio.date() + timedelta(days=indice)
+        for indice in range((fin.date() - inicio.date()).days + 1)
+    ]
+    entradas = {dia: 0 for dia in dias_rango}
+    salidas = {dia: 0 for dia in dias_rango}
+    for fila in movimientos_qs:
+        dia = fila['dia']
+        if isinstance(dia, str):
+            dia = parse_date(dia)
+        if dia not in entradas:
+            continue
+        if fila['tipo'] == 'entrada':
+            entradas[dia] += fila['total'] or 0
+        elif fila['tipo'] == 'salida':
+            salidas[dia] += fila['total'] or 0
+
+    movimientos_periodo = {
+        'labels': [dia.strftime('%d-%m') for dia in dias_rango],
+        'entradas': [entradas[dia] for dia in dias_rango],
+        'salidas': [salidas[dia] for dia in dias_rango],
+    }
+
+    productos_stock_bajo = (
+        Producto.objects.filter(stock_actual__lt=F('stock_minimo'))
+        .select_related('categoria')
+        .order_by('stock_actual', 'nombre')[:5]
+    )
+    ultimas_solicitudes = (
+        Solicitud.objects.select_related('sucursal')
+        .annotate(items=Count('detallesolicitud'))
+        .order_by('-fecha')[:5]
+    )
+
+    return {
+        'vista': 'resumen',
+        'periodo': periodo,
+        'periodo_label': PERIODOS[periodo],
+        'periodos': PERIODOS,
+        'total_productos': total_productos,
+        'total_productos_texto': _numero(total_productos),
+        'stock_critico': stock_critico,
+        'stock_critico_texto': _numero(stock_critico),
+        'solicitudes_pendientes': solicitudes_pendientes,
+        'solicitudes_pendientes_texto': _numero(solicitudes_pendientes),
+        'valor_inventario': valor_inventario,
+        'valor_inventario_texto': _moneda(valor_inventario),
+        'inventario_categoria': inventario_categoria,
+        'solicitudes_estado': solicitudes_estado,
+        'movimientos_periodo': movimientos_periodo,
+        'productos_stock_bajo': productos_stock_bajo,
+        'ultimas_solicitudes': ultimas_solicitudes,
     }

@@ -198,7 +198,7 @@ Los movimientos generados por una solicitud no se pueden eliminar manualmente, p
 | `/movimientos/` | Historial de movimientos de stock |
 | `/movimientos/crear/` | Registrar entrada o salida directa |
 | `/movimientos/<id>/editar/` | Editar fecha y observación de un movimiento directo |
-| `/reportes/` | Página con las 20 consultas ORM |
+| `/reportes/` | Resumen visual y página con las 20 consultas ORM |
 | `/alertas/` | Productos bajo el stock mínimo |
 | `/stock/` | Consulta de stock |
 
@@ -206,7 +206,7 @@ Los movimientos generados por una solicitud no se pueden eliminar manualmente, p
 
 ## Reportes ORM
 
-La página `/reportes/` incluye las 20 preguntas de la guía, agrupadas en:
+La página `/reportes/` abre con un **resumen visual** calculado con el ORM: productos registrados, stock crítico, solicitudes pendientes, valor del inventario, inventario por categoría, solicitudes por estado y movimientos de stock del período seleccionado. Desde la pestaña **Consultas ORM (20)** se accede al detalle de las 20 preguntas de la guía, agrupadas en:
 
 - **Básicas:** productos, productos por categoría, stock bajo mínimo, top 10 por precio y conteo por categoría.
 - **Intermedias:** productos por proveedor, solicitudes por sucursal, detalle de una solicitud, solicitudes por estado, solicitudes por rango de fechas, top 5 sucursales y productos más solicitados.
@@ -215,10 +215,11 @@ La página `/reportes/` incluye las 20 preguntas de la guía, agrupadas en:
 
 Cada reporte permite:
 
-- Seleccionar la consulta desde el menú lateral.
+- Seleccionar la consulta desde el listado de las 20 preguntas.
 - Aplicar filtros por categoría, proveedor, sucursal, solicitud o rango de fechas.
 - Ver los resultados en una tabla.
 - Desplegar la consulta ORM utilizada como evidencia.
+- Volver al resumen visual con el período de 7, 30 o 90 días.
 
 Todas las consultas usan el ORM de Django: `filter`, `annotate`, `aggregate`, `values`, `Sum`, `Count`, `Avg`, `F`, `Q`, `select_related`, entre otros.
 
