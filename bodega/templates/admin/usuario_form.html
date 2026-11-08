@@ -10,12 +10,6 @@
     <form method="post" novalidate>
         {% csrf_token %}
 
-        {% if form.non_field_errors %}
-        <div class="alert alert-danger py-2">
-            {{ form.non_field_errors }}
-        </div>
-        {% endif %}
-
         {% if accion == 'editar' %}
         <div class="mb-3">
             <label class="form-label small fw-semibold">Usuario</label>
@@ -24,22 +18,56 @@
         </div>
         {% endif %}
 
-        {% for field in form %}
-            {% if field.name == 'is_active' %}
-            <div class="mb-3 form-check">
-                {{ field }}
-                <label class="form-check-label small fw-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-            </div>
-            {% else %}
-            <div class="mb-3">
-                <label class="form-label small fw-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                {{ field }}
-                {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
-                {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-            </div>
-            {% endif %}
-        {% endfor %}
+        <div class="mb-3">
+            <label class="form-label small fw-semibold" for="id_first_name">Nombre</label>
+            <input type="text" name="first_name" id="id_first_name" class="form-control"
+                   value="{{ datos.first_name }}" placeholder="Nombre">
+            {% if errores.first_name %}<div class="text-danger small">{{ errores.first_name }}</div>{% endif %}
+        </div>
+        <div class="mb-3">
+            <label class="form-label small fw-semibold" for="id_last_name">Apellido</label>
+            <input type="text" name="last_name" id="id_last_name" class="form-control"
+                   value="{{ datos.last_name }}" placeholder="Apellido">
+            {% if errores.last_name %}<div class="text-danger small">{{ errores.last_name }}</div>{% endif %}
+        </div>
+        <div class="mb-3">
+            <label class="form-label small fw-semibold" for="id_email">Correo electrónico</label>
+            <input type="email" name="email" id="id_email" class="form-control"
+                   value="{{ datos.email }}" placeholder="usuario@musicpro.cl" required>
+            {% if errores.email %}<div class="text-danger small">{{ errores.email }}</div>{% endif %}
+        </div>
+        <div class="mb-3">
+            <label class="form-label small fw-semibold" for="id_rol">Rol</label>
+            <select name="rol" id="id_rol" class="form-select" required>
+                {% for valor, etiqueta in roles %}
+                <option value="{{ valor }}" {% if datos.rol == valor %}selected{% endif %}>{{ etiqueta }}</option>
+                {% endfor %}
+            </select>
+            {% if errores.rol %}<div class="text-danger small">{{ errores.rol }}</div>{% endif %}
+        </div>
+
+        {% if accion == 'crear' %}
+        <div class="mb-3">
+            <label class="form-label small fw-semibold" for="id_password1">Contraseña</label>
+            <input type="password" name="password1" id="id_password1" class="form-control"
+                   autocomplete="new-password" required>
+            <div class="form-text">Mínimo 8 caracteres, no totalmente numérica y no demasiado común.</div>
+            {% if errores.password1 %}<div class="text-danger small">{{ errores.password1 }}</div>{% endif %}
+        </div>
+        <div class="mb-3">
+            <label class="form-label small fw-semibold" for="id_password2">Confirmar contraseña</label>
+            <input type="password" name="password2" id="id_password2" class="form-control"
+                   autocomplete="new-password" required>
+            {% if errores.password2 %}<div class="text-danger small">{{ errores.password2 }}</div>{% endif %}
+        </div>
+        {% else %}
+        <div class="mb-3 form-check">
+            <input type="checkbox" name="is_active" id="id_is_active" class="form-check-input"
+                   {% if datos.is_active %}checked{% endif %}>
+            <label class="form-check-label small fw-semibold" for="id_is_active">Usuario activo</label>
+            {% if errores.is_active %}<div class="text-danger small">{{ errores.is_active }}</div>{% endif %}
+        </div>
+        {% endif %}
 
         <div class="d-flex gap-2 mt-4">
             <button type="submit" class="btn btn-blue">Guardar</button>

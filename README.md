@@ -21,6 +21,7 @@ La aplicación permite administrar el inventario, mantener usuarios con roles, g
 - Alertas de productos bajo el stock mínimo.
 - Página de reportes con las **20 consultas ORM** de la guía.
 - Persistencia real en MySQL mediante el ORM, sin SQL directo para las consultas de la aplicación.
+- Formularios HTML procesados directamente en `views.py` con `request.POST`, sin `ModelForm`.
 
 ---
 
@@ -126,6 +127,12 @@ El campo `username` corresponde al correo electrónico. Las contraseñas se alma
 
 ---
 
+## Formularios y validación
+
+Los formularios están construidos directamente en HTML y se procesan en `views.py` mediante `request.POST`. La validación de campos, la verificación de duplicados y los mensajes de error se realizan en el servidor, sin utilizar `ModelForm` ni clases `ProductoForm`. Todos los formularios incorporan `{% csrf_token %}` y las operaciones que modifican datos se ejecutan exclusivamente por POST.
+
+---
+
 ## Roles y permisos
 
 ### Administrador
@@ -225,8 +232,7 @@ musicpro_bodega/              Configuración del proyecto Django
   urls.py                     Rutas generales del proyecto
 bodega/
   models.py                   Modelos alineados al esquema de la bodega
-  views.py                    Autenticación, CRUD, solicitudes y movimientos
-  forms.py                    Formularios y validaciones
+  views.py                    Autenticación, CRUD con request.POST, solicitudes y movimientos
   reportes.py                 Catálogo y ejecución de las 20 consultas ORM
   permisos.py                 Helpers y decorador de roles
   context_processors.py       Expone el rol a las plantillas

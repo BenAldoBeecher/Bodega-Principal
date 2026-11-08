@@ -11,7 +11,38 @@
 </div>
 <div class="card p-4 col-lg-7">
     <form method="post" novalidate>
-        {% include 'admin/_formulario_entidad.html' %}
+        {% csrf_token %}
+        <div class="mb-3">
+            <label class="form-label small fw-semibold" for="id_sucursal">Sucursal</label>
+            <select name="sucursal" id="id_sucursal" class="form-select" required>
+                <option value="">Selecciona una sucursal</option>
+                {% for sucursal in sucursales %}
+                <option value="{{ sucursal.id }}"
+                        {% if datos.sucursal == sucursal.id|stringformat:"s" %}selected{% endif %}>
+                    {{ sucursal.codigo }} - {{ sucursal.nombre }}
+                </option>
+                {% endfor %}
+            </select>
+            {% if errores.sucursal %}<div class="text-danger small">{{ errores.sucursal }}</div>{% endif %}
+        </div>
+        <div class="mb-3">
+            <label class="form-label small fw-semibold" for="id_fecha">Fecha</label>
+            <input type="datetime-local" name="fecha" id="id_fecha" class="form-control"
+                   value="{{ datos.fecha }}" required>
+            {% if errores.fecha %}<div class="text-danger small">{{ errores.fecha }}</div>{% endif %}
+        </div>
+        <div class="mb-3">
+            <label class="form-label small fw-semibold" for="id_observaciones">Observaciones</label>
+            <textarea name="observaciones" id="id_observaciones" class="form-control" rows="3">{{ datos.observaciones }}</textarea>
+        </div>
+        <div class="d-flex gap-2 mt-4">
+            <button type="submit" class="btn btn-blue">Guardar</button>
+            {% if cancelar_pk %}
+            <a href="{% url cancelar_url_name cancelar_pk %}" class="btn btn-outline-secondary">Cancelar</a>
+            {% else %}
+            <a href="{% url cancelar_url_name %}" class="btn btn-outline-secondary">Cancelar</a>
+            {% endif %}
+        </div>
     </form>
 </div>
 {% endblock %}

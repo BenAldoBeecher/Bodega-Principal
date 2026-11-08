@@ -3,15 +3,25 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4 class="fw-bold mb-0">{{ titulo }}</h4>
-    {% if cancelar_pk %}
-    <a href="{% url cancelar_url_name cancelar_pk %}" class="btn btn-sm btn-outline-secondary">Volver</a>
-    {% else %}
     <a href="{% url cancelar_url_name %}" class="btn btn-sm btn-outline-secondary">Volver</a>
-    {% endif %}
 </div>
 <div class="card p-4 col-lg-7">
     <form method="post" novalidate>
-        {% include 'admin/_formulario_entidad.html' %}
+        {% csrf_token %}
+        <div class="mb-3">
+            <label class="form-label small fw-semibold" for="id_nombre">Nombre</label>
+            <input type="text" name="nombre" id="id_nombre" class="form-control"
+                   value="{{ datos.nombre }}" placeholder="Ej: Guitarras" required>
+            {% if errores.nombre %}<div class="text-danger small">{{ errores.nombre }}</div>{% endif %}
+        </div>
+        <div class="mb-3">
+            <label class="form-label small fw-semibold" for="id_descripcion">Descripción</label>
+            <textarea name="descripcion" id="id_descripcion" class="form-control" rows="3">{{ datos.descripcion }}</textarea>
+        </div>
+        <div class="d-flex gap-2 mt-4">
+            <button type="submit" class="btn btn-blue">Guardar</button>
+            <a href="{% url cancelar_url_name %}" class="btn btn-outline-secondary">Cancelar</a>
+        </div>
     </form>
 </div>
 {% endblock %}

@@ -1,26 +1,225 @@
+from decimal import Decimal, InvalidOperation
+
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Group, User
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.db import transaction
 from django.db.models import Count, F, Q, Sum
 from django.db.models.deletion import ProtectedError
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.utils.dateparse import parse_date
+from django.utils.dateparse import parse_date, parse_datetime
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.http import require_POST
 
-from .forms import (
-    CategoriaForm, DetalleSolicitudForm, MovimientoStockEditarForm,
-    MovimientoStockForm, ProductoForm, ProveedorForm, SolicitudForm,
-    SucursalForm, UsuarioCrearForm, UsuarioEditarForm,
-)
 from .models import (
     Categoria, DetalleSolicitud, MovimientoStock, Producto, Proveedor,
     Solicitud, Sucursal,
 )
 from .permisos import admin_required, es_admin
 from .reportes import REPORTES, obtener_reporte
+
+ROLES = [
+    ('Operador', 'Operador'),
+    ('Administrador', 'Administrador'),
+]
+
+
+def _texto(request, key):
+    return request.POST.get(key, '').strip()
+
+
+def _entero(request, key, etiqueta, errores, minimo=None):
+    raw = request.POST.get(key, '').strip()
+    if raw == '':
+        errores[key] = f'{etiqueta} es obligatorio.'
+        return None
+    try:
+        valor = int(raw)
+    except (TypeError, ValueError):
+        errores[key] = f'{etiqueta} debe ser un número entero.'
+        return None
+    if minimo is not None and valor < minimo:
+        errores[key] = f'{etiqueta} debe ser mayor o igual a {minimo}.'
+        return None
+    return valor
+
+
+def _decimal(request, key, etiqueta, errores, minimo=None):
+    raw = request.POST.get(key, '').strip()
+    if raw == '':
+        errores[key] = f'{etiqueta} es obligatorio.'
+        return None
+    try:
+        valor = Decimal(raw)
+    except (InvalidOperation, TypeError, ValueError):
+        errores[key] = f'{etiqueta} debe ser un número válido.'
+        return None
+    if minimo is not None and valor < minimo:
+        errores[key] = f'{etiqueta} debe ser mayor o igual a {minimo}.'
+        return None
+    return valor
+
+
+def _fecha_hora(request, key, etiqueta, errores):
+    raw = request.POST.get(key, '').strip()
+    if not raw:
+        errores[key] = f'{etiqueta} es obligatoria.'
+        return None
+    valor = parse_datetime(raw)
+    if valor is None:
+        errores[key] = f'{etiqueta} no tiene un formato válido.'
+    return valor
+
+
+def _email(request, key, etiqueta, errores, requerido=False):
+    raw = request.POST.get(key, '').strip()
+    if not raw:
+        if requerido:
+            errores[key] = f'{etiqueta} es obligatorio.'
+        return ''
+    try:
+        validate_email(raw)
+    except ValidationError:
+        errores[key] = f'{etiqueta} no es válido.'
+    return raw
+
+
+def _objeto(request, key, etiqueta, modelo, errores, queryset=None):
+    raw = request.POST.get(key, '').strip()
+    if not raw:
+        errores[key] = f'Debes seleccionar {etiqueta.lower()}.'
+        return None
+    qs = queryset if queryset is not None else modelo.objects.all()
+    try:
+        return qs.get(pk=raw)
+    except (modelo.DoesNotExist, ValueError, TypeError):
+        errores[key] = f'{etiqueta} no es válido.'
+        return None
+
+
+def _opcion(request, key, etiqueta, opciones, errores):
+    raw = request.POST.get(key, '').strip()
+    if raw not in dict(opciones):
+        errores[key] = f'{etiqueta} no es válida.'
+        return None
+    return raw
+
+
+def _datos_post(request, campos):
+    return {campo: request.POST.get(campo, '') for campo in campos}
+
+
+def _datos_producto(producto=None):
+    if producto is None:
+        return {
+            'sku': '', 'nombre': '', 'categoria': '', 'proveedor': '',
+            'precio': '', 'stock_actual': '0', 'stock_minimo': '0',
+            'activo': 'on',
+        }
+    return {
+        'sku': producto.sku,
+        'nombre': producto.nombre,
+        'categoria': str(producto.categoria_id),
+        'proveedor': str(producto.proveedor_id),
+        'precio': str(producto.precio),
+        'stock_actual': str(producto.stock_actual),
+        'stock_minimo': str(producto.stock_minimo),
+        'activo': 'on' if producto.activo else '',
+    }
+
+
+def _datos_categoria(categoria=None):
+    if categoria is None:
+        return {'nombre': '', 'descripcion': ''}
+    return {'nombre': categoria.nombre, 'descripcion': categoria.descripcion or ''}
+
+
+def _datos_proveedor(proveedor=None):
+    if proveedor is None:
+        return {
+            'rut': '', 'razon_social': '', 'email': '', 'telefono': '',
+            'activo': 'on',
+        }
+    return {
+        'rut': proveedor.rut or '',
+        'razon_social': proveedor.razon_social,
+        'email': proveedor.email or '',
+        'telefono': proveedor.telefono or '',
+        'activo': 'on' if proveedor.activo else '',
+    }
+
+
+def _datos_sucursal(sucursal=None):
+    if sucursal is None:
+        return {'codigo': '', 'nombre': '', 'direccion': '', 'activa': 'on'}
+    return {
+        'codigo': sucursal.codigo,
+        'nombre': sucursal.nombre,
+        'direccion': sucursal.direccion or '',
+        'activa': 'on' if sucursal.activa else '',
+    }
+
+
+def _datos_solicitud(solicitud=None):
+    if solicitud is None:
+        return {
+            'sucursal': '',
+            'fecha': timezone.now().strftime('%Y-%m-%dT%H:%M'),
+            'observaciones': '',
+        }
+    return {
+        'sucursal': str(solicitud.sucursal_id),
+        'fecha': solicitud.fecha.strftime('%Y-%m-%dT%H:%M'),
+        'observaciones': solicitud.observaciones or '',
+    }
+
+
+def _datos_detalle(detalle=None):
+    if detalle is None:
+        return {'producto': '', 'cantidad_solicitada': ''}
+    return {
+        'producto': str(detalle.producto_id),
+        'cantidad_solicitada': str(detalle.cantidad_solicitada),
+    }
+
+
+def _datos_movimiento(movimiento=None, tipo='entrada'):
+    if movimiento is None:
+        return {
+            'tipo': tipo,
+            'producto': '',
+            'cantidad': '',
+            'fecha': timezone.now().strftime('%Y-%m-%dT%H:%M'),
+            'observacion': '',
+        }
+    return {
+        'tipo': movimiento.tipo,
+        'producto': str(movimiento.producto_id),
+        'cantidad': str(movimiento.cantidad),
+        'fecha': movimiento.fecha.strftime('%Y-%m-%dT%H:%M'),
+        'observacion': movimiento.observacion or '',
+    }
+
+
+def _datos_usuario(usuario=None):
+    if usuario is None:
+        return {
+            'first_name': '', 'last_name': '', 'email': '',
+            'rol': 'Operador', 'password1': '', 'password2': '',
+            'is_active': 'on',
+        }
+    return {
+        'first_name': usuario.first_name,
+        'last_name': usuario.last_name,
+        'email': usuario.email or usuario.username,
+        'rol': 'Administrador' if es_admin(usuario) else 'Operador',
+        'is_active': 'on' if usuario.is_active else '',
+    }
 
 
 def index(request):
@@ -55,6 +254,7 @@ def login_view(request):
     })
 
 
+@require_POST
 def logout_view(request):
     logout(request)
     messages.info(request, 'Sesión cerrada correctamente.')
@@ -112,18 +312,52 @@ def producto_detail(request, pk):
 
 @admin_required
 def producto_crear(request):
+    categorias = Categoria.objects.order_by('nombre')
+    proveedores = Proveedor.objects.order_by('razon_social')
+    errores = {}
     if request.method == 'POST':
-        form = ProductoForm(request.POST)
-        if form.is_valid():
-            producto = form.save()
+        datos = _datos_post(request, (
+            'sku', 'nombre', 'categoria', 'proveedor', 'precio',
+            'stock_actual', 'stock_minimo', 'activo',
+        ))
+        sku = _texto(request, 'sku').upper()
+        nombre = _texto(request, 'nombre')
+        datos['sku'] = sku
+        datos['nombre'] = nombre
+        if not sku:
+            errores['sku'] = 'El SKU es obligatorio.'
+        elif Producto.objects.filter(sku__iexact=sku).exists():
+            errores['sku'] = 'Ya existe un producto con ese SKU.'
+        if not nombre:
+            errores['nombre'] = 'El nombre es obligatorio.'
+        categoria = _objeto(request, 'categoria', 'Categoría', Categoria, errores)
+        proveedor = _objeto(request, 'proveedor', 'Proveedor', Proveedor, errores)
+        precio = _decimal(request, 'precio', 'Precio', errores, minimo=Decimal('0.01'))
+        stock_actual = _entero(request, 'stock_actual', 'Stock actual', errores, minimo=0)
+        stock_minimo = _entero(request, 'stock_minimo', 'Stock mínimo', errores, minimo=0)
+        activo = request.POST.get('activo') == 'on'
+        if not errores:
+            producto = Producto.objects.create(
+                sku=sku,
+                nombre=nombre,
+                categoria=categoria,
+                proveedor=proveedor,
+                precio=precio,
+                stock_actual=stock_actual,
+                stock_minimo=stock_minimo,
+                activo=activo,
+            )
             messages.success(request, f'Producto "{producto.nombre}" creado correctamente.')
             return redirect('productos_list')
         messages.error(request, 'Revisa los datos del formulario.')
     else:
-        form = ProductoForm()
+        datos = _datos_producto()
 
     return render(request, 'admin/producto_form.html', {
-        'form': form,
+        'datos': datos,
+        'errores': errores,
+        'categorias': categorias,
+        'proveedores': proveedores,
         'titulo': 'Nuevo producto',
         'cancelar_url_name': 'productos_list',
     })
@@ -132,18 +366,51 @@ def producto_crear(request):
 @admin_required
 def producto_editar(request, pk):
     producto = get_object_or_404(Producto, pk=pk)
+    categorias = Categoria.objects.order_by('nombre')
+    proveedores = Proveedor.objects.order_by('razon_social')
+    errores = {}
     if request.method == 'POST':
-        form = ProductoForm(request.POST, instance=producto)
-        if form.is_valid():
-            form.save()
+        datos = _datos_post(request, (
+            'sku', 'nombre', 'categoria', 'proveedor', 'precio',
+            'stock_actual', 'stock_minimo', 'activo',
+        ))
+        sku = _texto(request, 'sku').upper()
+        nombre = _texto(request, 'nombre')
+        datos['sku'] = sku
+        datos['nombre'] = nombre
+        if not sku:
+            errores['sku'] = 'El SKU es obligatorio.'
+        elif Producto.objects.filter(sku__iexact=sku).exclude(pk=producto.pk).exists():
+            errores['sku'] = 'Ya existe un producto con ese SKU.'
+        if not nombre:
+            errores['nombre'] = 'El nombre es obligatorio.'
+        categoria = _objeto(request, 'categoria', 'Categoría', Categoria, errores)
+        proveedor = _objeto(request, 'proveedor', 'Proveedor', Proveedor, errores)
+        precio = _decimal(request, 'precio', 'Precio', errores, minimo=Decimal('0.01'))
+        stock_actual = _entero(request, 'stock_actual', 'Stock actual', errores, minimo=0)
+        stock_minimo = _entero(request, 'stock_minimo', 'Stock mínimo', errores, minimo=0)
+        activo = request.POST.get('activo') == 'on'
+        if not errores:
+            producto.sku = sku
+            producto.nombre = nombre
+            producto.categoria = categoria
+            producto.proveedor = proveedor
+            producto.precio = precio
+            producto.stock_actual = stock_actual
+            producto.stock_minimo = stock_minimo
+            producto.activo = activo
+            producto.save()
             messages.success(request, f'Producto "{producto.nombre}" actualizado correctamente.')
             return redirect('producto_detail', pk=producto.pk)
         messages.error(request, 'Revisa los datos del formulario.')
     else:
-        form = ProductoForm(instance=producto)
+        datos = _datos_producto(producto)
 
     return render(request, 'admin/producto_form.html', {
-        'form': form,
+        'datos': datos,
+        'errores': errores,
+        'categorias': categorias,
+        'proveedores': proveedores,
         'titulo': 'Editar producto',
         'producto': producto,
         'cancelar_url_name': 'producto_detail',
@@ -179,18 +446,30 @@ def categorias_list(request):
 
 @admin_required
 def categoria_crear(request):
+    errores = {}
     if request.method == 'POST':
-        form = CategoriaForm(request.POST)
-        if form.is_valid():
-            categoria = form.save()
+        datos = _datos_post(request, ('nombre', 'descripcion'))
+        nombre = _texto(request, 'nombre')
+        descripcion = request.POST.get('descripcion', '').strip()
+        datos['nombre'] = nombre
+        if not nombre:
+            errores['nombre'] = 'El nombre es obligatorio.'
+        elif Categoria.objects.filter(nombre__iexact=nombre).exists():
+            errores['nombre'] = 'Ya existe una categoría con ese nombre.'
+        if not errores:
+            categoria = Categoria.objects.create(
+                nombre=nombre,
+                descripcion=descripcion or None,
+            )
             messages.success(request, f'Categoría "{categoria.nombre}" creada correctamente.')
             return redirect('categorias_list')
         messages.error(request, 'Revisa los datos del formulario.')
     else:
-        form = CategoriaForm()
+        datos = _datos_categoria()
 
     return render(request, 'admin/categoria_form.html', {
-        'form': form,
+        'datos': datos,
+        'errores': errores,
         'titulo': 'Nueva categoría',
         'cancelar_url_name': 'categorias_list',
     })
@@ -199,18 +478,29 @@ def categoria_crear(request):
 @admin_required
 def categoria_editar(request, pk):
     categoria = get_object_or_404(Categoria, pk=pk)
+    errores = {}
     if request.method == 'POST':
-        form = CategoriaForm(request.POST, instance=categoria)
-        if form.is_valid():
-            form.save()
+        datos = _datos_post(request, ('nombre', 'descripcion'))
+        nombre = _texto(request, 'nombre')
+        descripcion = request.POST.get('descripcion', '').strip()
+        datos['nombre'] = nombre
+        if not nombre:
+            errores['nombre'] = 'El nombre es obligatorio.'
+        elif Categoria.objects.filter(nombre__iexact=nombre).exclude(pk=categoria.pk).exists():
+            errores['nombre'] = 'Ya existe una categoría con ese nombre.'
+        if not errores:
+            categoria.nombre = nombre
+            categoria.descripcion = descripcion or None
+            categoria.save()
             messages.success(request, f'Categoría "{categoria.nombre}" actualizada correctamente.')
             return redirect('categorias_list')
         messages.error(request, 'Revisa los datos del formulario.')
     else:
-        form = CategoriaForm(instance=categoria)
+        datos = _datos_categoria(categoria)
 
     return render(request, 'admin/categoria_form.html', {
-        'form': form,
+        'datos': datos,
+        'errores': errores,
         'titulo': 'Editar categoría',
         'categoria': categoria,
         'cancelar_url_name': 'categorias_list',
@@ -250,18 +540,41 @@ def proveedores_list(request):
 
 @admin_required
 def proveedor_crear(request):
+    errores = {}
     if request.method == 'POST':
-        form = ProveedorForm(request.POST)
-        if form.is_valid():
-            proveedor = form.save()
+        datos = _datos_post(request, (
+            'rut', 'razon_social', 'email', 'telefono', 'activo',
+        ))
+        rut = _texto(request, 'rut')
+        razon_social = _texto(request, 'razon_social')
+        email = _email(request, 'email', 'Correo electrónico', errores)
+        telefono = _texto(request, 'telefono')
+        activo = request.POST.get('activo') == 'on'
+        datos['rut'] = rut
+        datos['razon_social'] = razon_social
+        datos['email'] = email
+        datos['telefono'] = telefono
+        if not razon_social:
+            errores['razon_social'] = 'La razón social es obligatoria.'
+        if rut and Proveedor.objects.filter(rut__iexact=rut).exists():
+            errores['rut'] = 'Ya existe un proveedor con ese RUT.'
+        if not errores:
+            proveedor = Proveedor.objects.create(
+                rut=rut or None,
+                razon_social=razon_social,
+                email=email or None,
+                telefono=telefono or None,
+                activo=activo,
+            )
             messages.success(request, f'Proveedor "{proveedor.razon_social}" creado correctamente.')
             return redirect('proveedores_list')
         messages.error(request, 'Revisa los datos del formulario.')
     else:
-        form = ProveedorForm()
+        datos = _datos_proveedor()
 
     return render(request, 'admin/proveedor_form.html', {
-        'form': form,
+        'datos': datos,
+        'errores': errores,
         'titulo': 'Nuevo proveedor',
         'cancelar_url_name': 'proveedores_list',
     })
@@ -270,18 +583,40 @@ def proveedor_crear(request):
 @admin_required
 def proveedor_editar(request, pk):
     proveedor = get_object_or_404(Proveedor, pk=pk)
+    errores = {}
     if request.method == 'POST':
-        form = ProveedorForm(request.POST, instance=proveedor)
-        if form.is_valid():
-            form.save()
+        datos = _datos_post(request, (
+            'rut', 'razon_social', 'email', 'telefono', 'activo',
+        ))
+        rut = _texto(request, 'rut')
+        razon_social = _texto(request, 'razon_social')
+        email = _email(request, 'email', 'Correo electrónico', errores)
+        telefono = _texto(request, 'telefono')
+        activo = request.POST.get('activo') == 'on'
+        datos['rut'] = rut
+        datos['razon_social'] = razon_social
+        datos['email'] = email
+        datos['telefono'] = telefono
+        if not razon_social:
+            errores['razon_social'] = 'La razón social es obligatoria.'
+        if rut and Proveedor.objects.filter(rut__iexact=rut).exclude(pk=proveedor.pk).exists():
+            errores['rut'] = 'Ya existe un proveedor con ese RUT.'
+        if not errores:
+            proveedor.rut = rut or None
+            proveedor.razon_social = razon_social
+            proveedor.email = email or None
+            proveedor.telefono = telefono or None
+            proveedor.activo = activo
+            proveedor.save()
             messages.success(request, f'Proveedor "{proveedor.razon_social}" actualizado correctamente.')
             return redirect('proveedores_list')
         messages.error(request, 'Revisa los datos del formulario.')
     else:
-        form = ProveedorForm(instance=proveedor)
+        datos = _datos_proveedor(proveedor)
 
     return render(request, 'admin/proveedor_form.html', {
-        'form': form,
+        'datos': datos,
+        'errores': errores,
         'titulo': 'Editar proveedor',
         'proveedor': proveedor,
         'cancelar_url_name': 'proveedores_list',
@@ -319,18 +654,37 @@ def sucursales_list(request):
 
 @admin_required
 def sucursal_crear(request):
+    errores = {}
     if request.method == 'POST':
-        form = SucursalForm(request.POST)
-        if form.is_valid():
-            sucursal = form.save()
+        datos = _datos_post(request, ('codigo', 'nombre', 'direccion', 'activa'))
+        codigo = _texto(request, 'codigo').upper()
+        nombre = _texto(request, 'nombre')
+        direccion = _texto(request, 'direccion')
+        activa = request.POST.get('activa') == 'on'
+        datos['codigo'] = codigo
+        datos['nombre'] = nombre
+        if not codigo:
+            errores['codigo'] = 'El código es obligatorio.'
+        elif Sucursal.objects.filter(codigo__iexact=codigo).exists():
+            errores['codigo'] = 'Ya existe una sucursal con ese código.'
+        if not nombre:
+            errores['nombre'] = 'El nombre es obligatorio.'
+        if not errores:
+            sucursal = Sucursal.objects.create(
+                codigo=codigo,
+                nombre=nombre,
+                direccion=direccion or None,
+                activa=activa,
+            )
             messages.success(request, f'Sucursal "{sucursal.nombre}" creada correctamente.')
             return redirect('sucursales_list')
         messages.error(request, 'Revisa los datos del formulario.')
     else:
-        form = SucursalForm()
+        datos = _datos_sucursal()
 
     return render(request, 'admin/sucursal_form.html', {
-        'form': form,
+        'datos': datos,
+        'errores': errores,
         'titulo': 'Nueva sucursal',
         'cancelar_url_name': 'sucursales_list',
     })
@@ -339,18 +693,36 @@ def sucursal_crear(request):
 @admin_required
 def sucursal_editar(request, pk):
     sucursal = get_object_or_404(Sucursal, pk=pk)
+    errores = {}
     if request.method == 'POST':
-        form = SucursalForm(request.POST, instance=sucursal)
-        if form.is_valid():
-            form.save()
+        datos = _datos_post(request, ('codigo', 'nombre', 'direccion', 'activa'))
+        codigo = _texto(request, 'codigo').upper()
+        nombre = _texto(request, 'nombre')
+        direccion = _texto(request, 'direccion')
+        activa = request.POST.get('activa') == 'on'
+        datos['codigo'] = codigo
+        datos['nombre'] = nombre
+        if not codigo:
+            errores['codigo'] = 'El código es obligatorio.'
+        elif Sucursal.objects.filter(codigo__iexact=codigo).exclude(pk=sucursal.pk).exists():
+            errores['codigo'] = 'Ya existe una sucursal con ese código.'
+        if not nombre:
+            errores['nombre'] = 'El nombre es obligatorio.'
+        if not errores:
+            sucursal.codigo = codigo
+            sucursal.nombre = nombre
+            sucursal.direccion = direccion or None
+            sucursal.activa = activa
+            sucursal.save()
             messages.success(request, f'Sucursal "{sucursal.nombre}" actualizada correctamente.')
             return redirect('sucursales_list')
         messages.error(request, 'Revisa los datos del formulario.')
     else:
-        form = SucursalForm(instance=sucursal)
+        datos = _datos_sucursal(sucursal)
 
     return render(request, 'admin/sucursal_form.html', {
-        'form': form,
+        'datos': datos,
+        'errores': errores,
         'titulo': 'Editar sucursal',
         'sucursal': sucursal,
         'cancelar_url_name': 'sucursales_list',
@@ -398,48 +770,137 @@ def usuario_detail(request, pk):
 
 @admin_required
 def usuario_crear(request):
+    errores = {}
     if request.method == 'POST':
-        form = UsuarioCrearForm(request.POST)
-        if form.is_valid():
-            usuario = form.save()
-            messages.success(request, f'Usuario "{usuario.get_full_name() or usuario.username}" creado correctamente.')
+        datos = _datos_post(request, (
+            'first_name', 'last_name', 'email', 'rol', 'password1', 'password2',
+        ))
+        first_name = _texto(request, 'first_name')
+        last_name = _texto(request, 'last_name')
+        email = _email(
+            request, 'email', 'Correo electrónico', errores, requerido=True,
+        ).lower()
+        rol = _opcion(request, 'rol', 'Rol', ROLES, errores)
+        password1 = request.POST.get('password1', '')
+        password2 = request.POST.get('password2', '')
+        datos['first_name'] = first_name
+        datos['last_name'] = last_name
+        datos['email'] = email
+        if email and 'email' not in errores:
+            if User.objects.filter(
+                Q(email__iexact=email) | Q(username__iexact=email)
+            ).exists():
+                errores['email'] = 'Ya existe un usuario con ese correo electrónico.'
+        if not password1:
+            errores['password1'] = 'La contraseña es obligatoria.'
+        else:
+            usuario_temporal = User(
+                username=email,
+                email=email,
+                first_name=first_name,
+                last_name=last_name,
+            )
+            try:
+                validate_password(password1, usuario_temporal)
+            except ValidationError as error:
+                errores['password1'] = ' '.join(error.messages)
+        if not password2:
+            errores['password2'] = 'Debes confirmar la contraseña.'
+        elif password1 and password1 != password2:
+            errores['password2'] = 'Las contraseñas no coinciden.'
+        if not errores:
+            usuario = User.objects.create_user(
+                username=email,
+                email=email,
+                password=password1,
+                first_name=first_name,
+                last_name=last_name,
+                is_staff=(rol == 'Administrador'),
+            )
+            grupo, _ = Group.objects.get_or_create(name=rol)
+            usuario.groups.set([grupo])
+            messages.success(
+                request,
+                f'Usuario "{usuario.get_full_name() or usuario.username}" creado correctamente.',
+            )
             return redirect('usuarios_list')
         messages.error(request, 'Revisa los datos del formulario.')
     else:
-        form = UsuarioCrearForm()
+        datos = _datos_usuario()
 
     return render(request, 'admin/usuario_form.html', {
+        'datos': datos,
+        'errores': errores,
+        'roles': ROLES,
         'titulo': 'Crear nuevo usuario',
         'accion': 'crear',
-        'form': form,
     })
 
 
 @admin_required
 def usuario_editar(request, pk):
     usuario = get_object_or_404(User, pk=pk)
-
+    errores = {}
     if request.method == 'POST':
-        form = UsuarioEditarForm(request.POST, instance=usuario)
-        if form.is_valid():
-            if usuario == request.user and form.cleaned_data['rol'] != 'Administrador':
-                messages.error(request, 'No puedes quitarte a ti mismo el rol de Administrador.')
-            elif usuario == request.user and not form.cleaned_data['is_active']:
-                messages.error(request, 'No puedes desactivar tu propio usuario.')
-            else:
-                form.save()
-                messages.success(request, f'Usuario "{usuario.get_full_name() or usuario.username}" actualizado correctamente.')
-                return redirect('usuarios_list')
-        else:
-            messages.error(request, 'Revisa los datos del formulario.')
+        datos = _datos_post(request, (
+            'first_name', 'last_name', 'email', 'rol', 'is_active',
+        ))
+        first_name = _texto(request, 'first_name')
+        last_name = _texto(request, 'last_name')
+        email = _email(
+            request, 'email', 'Correo electrónico', errores, requerido=True,
+        ).lower()
+        rol = _opcion(request, 'rol', 'Rol', ROLES, errores)
+        is_active = request.POST.get('is_active') == 'on'
+        datos['first_name'] = first_name
+        datos['last_name'] = last_name
+        datos['email'] = email
+        if email and 'email' not in errores:
+            if User.objects.filter(
+                Q(email__iexact=email) | Q(username__iexact=email)
+            ).exclude(pk=usuario.pk).exists():
+                errores['email'] = 'Ya existe un usuario con ese correo electrónico.'
+        if usuario == request.user and rol and rol != 'Administrador':
+            errores['rol'] = 'No puedes quitarte a ti mismo el rol de Administrador.'
+        if usuario == request.user and not is_active:
+            errores['is_active'] = 'No puedes desactivar tu propio usuario.'
+        if es_admin(usuario) and rol and (rol != 'Administrador' or not is_active):
+            otros_admins = User.objects.filter(
+                Q(is_superuser=True) | Q(groups__name='Administrador'),
+                is_active=True,
+            ).exclude(pk=usuario.pk).distinct().count()
+            if otros_admins == 0:
+                errores['rol' if rol != 'Administrador' else 'is_active'] = (
+                    'No puedes dejar el sistema sin administradores activos.'
+                )
+        if not errores:
+            usuario.first_name = first_name
+            usuario.last_name = last_name
+            usuario.username = email
+            usuario.email = email
+            usuario.is_staff = (rol == 'Administrador')
+            if rol != 'Administrador':
+                usuario.is_superuser = False
+            usuario.is_active = is_active
+            usuario.save()
+            grupo, _ = Group.objects.get_or_create(name=rol)
+            usuario.groups.set([grupo])
+            messages.success(
+                request,
+                f'Usuario "{usuario.get_full_name() or usuario.username}" actualizado correctamente.',
+            )
+            return redirect('usuarios_list')
+        messages.error(request, 'Revisa los datos del formulario.')
     else:
-        form = UsuarioEditarForm(instance=usuario)
+        datos = _datos_usuario(usuario)
 
     return render(request, 'admin/usuario_form.html', {
+        'datos': datos,
+        'errores': errores,
+        'roles': ROLES,
         'titulo': 'Editar usuario',
         'accion': 'editar',
         'usuario': usuario,
-        'form': form,
     })
 
 
@@ -471,7 +932,9 @@ def usuario_eliminar(request, pk):
 
 # ========== SOLICITUDES, DETALLES Y MOVIMIENTOS DE STOCK ==========
 
-def _contexto_solicitud_detail(solicitud, detalle_form=None):
+def _contexto_solicitud_detail(
+    solicitud, detalle_datos=None, detalle_errores=None, productos=None,
+):
     detalles = list(
         solicitud.detallesolicitud_set.select_related('producto__categoria')
         .order_by('producto__nombre')
@@ -485,14 +948,20 @@ def _contexto_solicitud_detail(solicitud, detalle_form=None):
         'aprobado': sum(d.cantidad_aprobada or 0 for d in detalles),
         'despachado': sum(d.cantidad_despachada or 0 for d in detalles),
     }
-    if detalle_form is None and solicitud.estado == 'pendiente':
-        detalle_form = DetalleSolicitudForm()
+    if productos is None:
+        productos = Producto.objects.filter(activo=True).order_by('nombre')
+    if detalle_datos is None:
+        detalle_datos = _datos_detalle()
+    if detalle_errores is None:
+        detalle_errores = {}
     return {
         'solicitud': solicitud,
         'detalles': detalles,
         'movimientos': movimientos,
         'totales': totales,
-        'detalle_form': detalle_form,
+        'detalle_datos': detalle_datos,
+        'detalle_errores': detalle_errores,
+        'productos': productos,
     }
 
 
@@ -528,12 +997,22 @@ def solicitudes_list(request):
 
 @login_required
 def solicitud_crear(request):
+    sucursales = Sucursal.objects.order_by('nombre')
+    errores = {}
     if request.method == 'POST':
-        form = SolicitudForm(request.POST)
-        if form.is_valid():
-            solicitud = form.save(commit=False)
-            solicitud.estado = 'pendiente'
-            solicitud.save()
+        datos = _datos_post(request, ('sucursal', 'fecha', 'observaciones'))
+        sucursal = _objeto(
+            request, 'sucursal', 'Sucursal', Sucursal, errores, queryset=sucursales,
+        )
+        fecha = _fecha_hora(request, 'fecha', 'Fecha', errores)
+        observaciones = request.POST.get('observaciones', '').strip()
+        if not errores:
+            solicitud = Solicitud.objects.create(
+                sucursal=sucursal,
+                fecha=fecha,
+                estado='pendiente',
+                observaciones=observaciones or None,
+            )
             messages.success(
                 request,
                 f'Solicitud #{solicitud.pk} creada. Agrega los productos solicitados.',
@@ -541,10 +1020,12 @@ def solicitud_crear(request):
             return redirect('solicitud_detail', pk=solicitud.pk)
         messages.error(request, 'Revisa los datos del formulario.')
     else:
-        form = SolicitudForm(initial={'fecha': timezone.now()})
+        datos = _datos_solicitud()
 
     return render(request, 'admin/solicitud_form.html', {
-        'form': form,
+        'datos': datos,
+        'errores': errores,
+        'sucursales': sucursales,
         'titulo': 'Nueva solicitud',
         'cancelar_url_name': 'solicitudes_list',
     })
@@ -563,18 +1044,30 @@ def solicitud_editar(request, pk):
         messages.error(request, 'Solo se pueden editar solicitudes pendientes.')
         return redirect('solicitud_detail', pk=solicitud.pk)
 
+    sucursales = Sucursal.objects.order_by('nombre')
+    errores = {}
     if request.method == 'POST':
-        form = SolicitudForm(request.POST, instance=solicitud)
-        if form.is_valid():
-            form.save()
+        datos = _datos_post(request, ('sucursal', 'fecha', 'observaciones'))
+        sucursal = _objeto(
+            request, 'sucursal', 'Sucursal', Sucursal, errores, queryset=sucursales,
+        )
+        fecha = _fecha_hora(request, 'fecha', 'Fecha', errores)
+        observaciones = request.POST.get('observaciones', '').strip()
+        if not errores:
+            solicitud.sucursal = sucursal
+            solicitud.fecha = fecha
+            solicitud.observaciones = observaciones or None
+            solicitud.save()
             messages.success(request, f'Solicitud #{solicitud.pk} actualizada correctamente.')
             return redirect('solicitud_detail', pk=solicitud.pk)
         messages.error(request, 'Revisa los datos del formulario.')
     else:
-        form = SolicitudForm(instance=solicitud)
+        datos = _datos_solicitud(solicitud)
 
     return render(request, 'admin/solicitud_form.html', {
-        'form': form,
+        'datos': datos,
+        'errores': errores,
+        'sucursales': sucursales,
         'titulo': f'Editar solicitud #{solicitud.pk}',
         'solicitud': solicitud,
         'cancelar_url_name': 'solicitud_detail',
@@ -605,39 +1098,45 @@ def solicitud_eliminar(request, pk):
 
 
 @login_required
+@require_POST
 def detalle_crear(request, solicitud_pk):
     solicitud = get_object_or_404(Solicitud.objects.select_related('sucursal'), pk=solicitud_pk)
     if solicitud.estado != 'pendiente':
         messages.error(request, 'Solo se pueden agregar productos a solicitudes pendientes.')
         return redirect('solicitud_detail', pk=solicitud.pk)
 
-    if request.method != 'POST':
-        return redirect('solicitud_detail', pk=solicitud.pk)
-
-    form = DetalleSolicitudForm(request.POST)
-    if not form.is_valid():
+    productos = Producto.objects.filter(activo=True).order_by('nombre')
+    errores = {}
+    datos = _datos_post(request, ('producto', 'cantidad_solicitada'))
+    producto = _objeto(
+        request, 'producto', 'Producto', Producto, errores, queryset=productos,
+    )
+    cantidad = _entero(
+        request, 'cantidad_solicitada', 'Cantidad solicitada', errores, minimo=1,
+    )
+    if not errores and solicitud.detallesolicitud_set.filter(producto=producto).exists():
+        errores['producto'] = (
+            'Ese producto ya está en la solicitud. '
+            'Edita la cantidad del detalle existente.'
+        )
+    if errores:
         messages.error(request, 'Revisa los datos del producto y la cantidad.')
         return render(
             request,
             'admin/solicitud_detail.html',
-            _contexto_solicitud_detail(solicitud, form),
+            _contexto_solicitud_detail(
+                solicitud,
+                detalle_datos=datos,
+                detalle_errores=errores,
+                productos=productos,
+            ),
         )
 
-    producto = form.cleaned_data['producto']
-    if solicitud.detallesolicitud_set.filter(producto=producto).exists():
-        messages.error(
-            request,
-            'Ese producto ya está en la solicitud. Edita la cantidad del detalle existente.',
-        )
-        return render(
-            request,
-            'admin/solicitud_detail.html',
-            _contexto_solicitud_detail(solicitud, form),
-        )
-
-    detalle = form.save(commit=False)
-    detalle.solicitud = solicitud
-    detalle.save()
+    DetalleSolicitud.objects.create(
+        solicitud=solicitud,
+        producto=producto,
+        cantidad_solicitada=cantidad,
+    )
     messages.success(request, f'Producto "{producto.nombre}" agregado a la solicitud.')
     return redirect('solicitud_detail', pk=solicitud.pk)
 
@@ -652,10 +1151,19 @@ def detalle_editar(request, pk):
         messages.error(request, 'Solo se pueden editar detalles de solicitudes pendientes.')
         return redirect('solicitud_detail', pk=solicitud.pk)
 
+    productos = Producto.objects.filter(
+        Q(activo=True) | Q(pk=detalle.producto_id),
+    ).order_by('nombre')
+    errores = {}
     if request.method == 'POST':
-        form = DetalleSolicitudForm(request.POST, instance=detalle)
-        if form.is_valid():
-            producto = form.cleaned_data['producto']
+        datos = _datos_post(request, ('producto', 'cantidad_solicitada'))
+        producto = _objeto(
+            request, 'producto', 'Producto', Producto, errores, queryset=productos,
+        )
+        cantidad = _entero(
+            request, 'cantidad_solicitada', 'Cantidad solicitada', errores, minimo=1,
+        )
+        if not errores:
             duplicado = (
                 solicitud.detallesolicitud_set
                 .filter(producto=producto)
@@ -663,18 +1171,21 @@ def detalle_editar(request, pk):
                 .exists()
             )
             if duplicado:
-                messages.error(request, 'Ese producto ya está en la solicitud.')
+                errores['producto'] = 'Ese producto ya está en la solicitud.'
             else:
-                form.save()
+                detalle.producto = producto
+                detalle.cantidad_solicitada = cantidad
+                detalle.save()
                 messages.success(request, 'Detalle actualizado correctamente.')
                 return redirect('solicitud_detail', pk=solicitud.pk)
-        else:
-            messages.error(request, 'Revisa los datos del detalle.')
+        messages.error(request, 'Revisa los datos del detalle.')
     else:
-        form = DetalleSolicitudForm(instance=detalle)
+        datos = _datos_detalle(detalle)
 
     return render(request, 'admin/detalle_form.html', {
-        'form': form,
+        'datos': datos,
+        'errores': errores,
+        'productos': productos,
         'titulo': f'Editar detalle de solicitud #{solicitud.pk}',
         'detalle': detalle,
         'cancelar_url_name': 'solicitud_detail',
@@ -792,10 +1303,9 @@ def solicitud_autorizar(request, pk):
 
 
 @admin_required
+@require_POST
 def solicitud_despachar(request, pk):
     solicitud = get_object_or_404(Solicitud.objects.select_related('sucursal'), pk=pk)
-    if request.method != 'POST':
-        return redirect('solicitud_detail', pk=solicitud.pk)
 
     if solicitud.estado != 'aprobada':
         messages.error(request, 'Solo se pueden despachar solicitudes aprobadas.')
@@ -915,6 +1425,9 @@ def movimiento_crear(request):
     if tipo_inicial not in dict(MovimientoStock.TIPO_CHOICES):
         tipo_inicial = 'entrada'
 
+    productos = Producto.objects.filter(activo=True).order_by('nombre')
+    tipos = MovimientoStock.TIPO_CHOICES if usuario_admin else [('entrada', 'Entrada')]
+    errores = {}
     if request.method == 'POST':
         tipo_solicitado = request.POST.get('tipo')
         if not usuario_admin and tipo_solicitado != 'entrada':
@@ -923,53 +1436,56 @@ def movimiento_crear(request):
                 'Solo el administrador puede registrar salidas directas. '
                 'Para enviar productos a una sucursal crea una solicitud de pedido.',
             )
-            form = MovimientoStockForm(
-                initial={'fecha': timezone.now(), 'tipo': 'entrada'},
-            )
+            datos = _datos_movimiento(tipo='entrada')
         else:
-            form = MovimientoStockForm(request.POST)
-            if form.is_valid():
-                tipo = form.cleaned_data['tipo']
-                cantidad = form.cleaned_data['cantidad']
-                try:
-                    with transaction.atomic():
-                        producto = Producto.objects.select_for_update().get(
-                            pk=form.cleaned_data['producto'].pk,
+            datos = _datos_post(request, (
+                'tipo', 'producto', 'cantidad', 'fecha', 'observacion',
+            ))
+            tipo = _opcion(request, 'tipo', 'Tipo de movimiento', tipos, errores)
+            producto = _objeto(
+                request, 'producto', 'Producto', Producto, errores,
+                queryset=productos,
+            )
+            cantidad = _entero(request, 'cantidad', 'Cantidad', errores, minimo=1)
+            fecha = _fecha_hora(request, 'fecha', 'Fecha', errores)
+            observacion = request.POST.get('observacion', '').strip()
+            if not errores:
+                with transaction.atomic():
+                    producto = Producto.objects.select_for_update().get(pk=producto.pk)
+                    if tipo == 'salida' and producto.stock_actual < cantidad:
+                        errores['cantidad'] = (
+                            f'Stock insuficiente para {producto.nombre}: '
+                            f'disponible {producto.stock_actual}, solicitado {cantidad}.'
                         )
-                        if tipo == 'salida' and producto.stock_actual < cantidad:
-                            raise ValueError(
-                                f'Stock insuficiente para {producto.nombre}: '
-                                f'disponible {producto.stock_actual}, solicitado {cantidad}.'
-                            )
-
-                        movimiento = form.save(commit=False)
-                        movimiento.producto = producto
-                        movimiento.save()
-
+                    else:
+                        movimiento = MovimientoStock.objects.create(
+                            producto=producto,
+                            tipo=tipo,
+                            cantidad=cantidad,
+                            fecha=fecha,
+                            observacion=observacion or None,
+                        )
                         if tipo == 'entrada':
                             producto.stock_actual += cantidad
                         else:
                             producto.stock_actual -= cantidad
                         producto.save(update_fields=['stock_actual'])
-                except ValueError as error:
-                    messages.error(request, str(error))
-                else:
+                if not errores:
                     messages.success(
                         request,
                         f'Movimiento de {movimiento.get_tipo_display().lower()} registrado correctamente.',
                     )
                     return redirect('movimientos_list')
-            else:
+            if errores:
                 messages.error(request, 'Revisa los datos del movimiento.')
     else:
-        form = MovimientoStockForm(initial={'fecha': timezone.now(), 'tipo': tipo_inicial})
-
-    if not usuario_admin:
-        form.fields['tipo'].choices = [('entrada', 'Entrada')]
-        form.fields['tipo'].initial = 'entrada'
+        datos = _datos_movimiento(tipo=tipo_inicial)
 
     return render(request, 'admin/movimiento_form.html', {
-        'form': form,
+        'datos': datos,
+        'errores': errores,
+        'productos': productos,
+        'tipos': tipos,
         'titulo': 'Registrar movimiento de stock',
         'cancelar_url_name': 'movimientos_list',
     })
@@ -987,18 +1503,27 @@ def movimiento_editar(request, pk):
         )
         return redirect('movimientos_list')
 
+    errores = {}
     if request.method == 'POST':
-        form = MovimientoStockEditarForm(request.POST, instance=movimiento)
-        if form.is_valid():
-            form.save()
+        datos = _datos_post(request, ('fecha', 'observacion'))
+        fecha = _fecha_hora(request, 'fecha', 'Fecha', errores)
+        observacion = request.POST.get('observacion', '').strip()
+        if not errores:
+            movimiento.fecha = fecha
+            movimiento.observacion = observacion or None
+            movimiento.save(update_fields=['fecha', 'observacion'])
             messages.success(request, 'Movimiento actualizado correctamente.')
             return redirect('movimientos_list')
         messages.error(request, 'Revisa los datos del movimiento.')
     else:
-        form = MovimientoStockEditarForm(instance=movimiento)
+        datos = {
+            'fecha': movimiento.fecha.strftime('%Y-%m-%dT%H:%M'),
+            'observacion': movimiento.observacion or '',
+        }
 
     return render(request, 'admin/movimiento_editar.html', {
-        'form': form,
+        'datos': datos,
+        'errores': errores,
         'titulo': f'Editar movimiento #{movimiento.pk}',
         'movimiento': movimiento,
         'cancelar_url_name': 'movimientos_list',

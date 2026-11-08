@@ -118,20 +118,29 @@
     </div>
 </div>
 
-{% if solicitud.estado == 'pendiente' and detalle_form %}
+{% if solicitud.estado == 'pendiente' %}
 <div class="card p-4 mb-4">
     <h6 class="fw-semibold mb-3">Agregar producto a la solicitud</h6>
     <form method="post" action="{% url 'detalle_crear' solicitud.id %}" class="row g-2 align-items-end" novalidate>
         {% csrf_token %}
         <div class="col-md-7">
-            <label class="form-label small fw-semibold" for="{{ detalle_form.producto.id_for_label }}">Producto</label>
-            {{ detalle_form.producto }}
-            {% for error in detalle_form.producto.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            <label class="form-label small fw-semibold" for="id_producto">Producto</label>
+            <select name="producto" id="id_producto" class="form-select" required>
+                <option value="">Selecciona un producto</option>
+                {% for producto in productos %}
+                <option value="{{ producto.id }}"
+                        {% if detalle_datos.producto == producto.id|stringformat:"s" %}selected{% endif %}>
+                    {{ producto.nombre }} ({{ producto.sku }})
+                </option>
+                {% endfor %}
+            </select>
+            {% if detalle_errores.producto %}<div class="text-danger small">{{ detalle_errores.producto }}</div>{% endif %}
         </div>
         <div class="col-md-3">
-            <label class="form-label small fw-semibold" for="{{ detalle_form.cantidad_solicitada.id_for_label }}">Cantidad</label>
-            {{ detalle_form.cantidad_solicitada }}
-            {% for error in detalle_form.cantidad_solicitada.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            <label class="form-label small fw-semibold" for="id_cantidad_solicitada">Cantidad</label>
+            <input type="number" name="cantidad_solicitada" id="id_cantidad_solicitada"
+                   class="form-control" min="1" value="{{ detalle_datos.cantidad_solicitada }}" required>
+            {% if detalle_errores.cantidad_solicitada %}<div class="text-danger small">{{ detalle_errores.cantidad_solicitada }}</div>{% endif %}
         </div>
         <div class="col-md-2">
             <button type="submit" class="btn btn-blue w-100">Agregar</button>

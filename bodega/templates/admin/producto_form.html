@@ -11,7 +11,78 @@
 </div>
 <div class="card p-4 col-lg-8">
     <form method="post" novalidate>
-        {% include 'admin/_formulario_entidad.html' %}
+        {% csrf_token %}
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label small fw-semibold" for="id_sku">SKU</label>
+                <input type="text" name="sku" id="id_sku" class="form-control"
+                       value="{{ datos.sku }}" placeholder="SKU-00000001" required>
+                {% if errores.sku %}<div class="text-danger small">{{ errores.sku }}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label small fw-semibold" for="id_nombre">Nombre</label>
+                <input type="text" name="nombre" id="id_nombre" class="form-control"
+                       value="{{ datos.nombre }}" placeholder="Guitarra eléctrica" required>
+                {% if errores.nombre %}<div class="text-danger small">{{ errores.nombre }}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label small fw-semibold" for="id_categoria">Categoría</label>
+                <select name="categoria" id="id_categoria" class="form-select" required>
+                    <option value="">Selecciona una categoría</option>
+                    {% for categoria in categorias %}
+                    <option value="{{ categoria.id }}"
+                            {% if datos.categoria == categoria.id|stringformat:"s" %}selected{% endif %}>
+                        {{ categoria.nombre }}
+                    </option>
+                    {% endfor %}
+                </select>
+                {% if errores.categoria %}<div class="text-danger small">{{ errores.categoria }}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label small fw-semibold" for="id_proveedor">Proveedor</label>
+                <select name="proveedor" id="id_proveedor" class="form-select" required>
+                    <option value="">Selecciona un proveedor</option>
+                    {% for proveedor in proveedores %}
+                    <option value="{{ proveedor.id }}"
+                            {% if datos.proveedor == proveedor.id|stringformat:"s" %}selected{% endif %}>
+                        {{ proveedor.razon_social }}
+                    </option>
+                    {% endfor %}
+                </select>
+                {% if errores.proveedor %}<div class="text-danger small">{{ errores.proveedor }}</div>{% endif %}
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small fw-semibold" for="id_precio">Precio</label>
+                <input type="number" name="precio" id="id_precio" class="form-control"
+                       step="0.01" min="0" value="{{ datos.precio }}" required>
+                {% if errores.precio %}<div class="text-danger small">{{ errores.precio }}</div>{% endif %}
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small fw-semibold" for="id_stock_actual">Stock actual</label>
+                <input type="number" name="stock_actual" id="id_stock_actual" class="form-control"
+                       min="0" value="{{ datos.stock_actual }}" required>
+                {% if errores.stock_actual %}<div class="text-danger small">{{ errores.stock_actual }}</div>{% endif %}
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small fw-semibold" for="id_stock_minimo">Stock mínimo</label>
+                <input type="number" name="stock_minimo" id="id_stock_minimo" class="form-control"
+                       min="0" value="{{ datos.stock_minimo }}" required>
+                {% if errores.stock_minimo %}<div class="text-danger small">{{ errores.stock_minimo }}</div>{% endif %}
+            </div>
+            <div class="col-12 form-check mt-2">
+                <input type="checkbox" name="activo" id="id_activo" class="form-check-input"
+                       {% if datos.activo %}checked{% endif %}>
+                <label class="form-check-label small fw-semibold" for="id_activo">Producto activo</label>
+            </div>
+        </div>
+        <div class="d-flex gap-2 mt-4">
+            <button type="submit" class="btn btn-blue">Guardar</button>
+            {% if cancelar_pk %}
+            <a href="{% url cancelar_url_name cancelar_pk %}" class="btn btn-outline-secondary">Cancelar</a>
+            {% else %}
+            <a href="{% url cancelar_url_name %}" class="btn btn-outline-secondary">Cancelar</a>
+            {% endif %}
+        </div>
     </form>
 </div>
 {% endblock %}

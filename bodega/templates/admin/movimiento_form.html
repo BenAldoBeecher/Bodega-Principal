@@ -11,7 +11,49 @@
         Las entradas aumentan el stock y las salidas lo disminuyen. El sistema valida que haya stock suficiente.
     </div>
     <form method="post" novalidate>
-        {% include 'admin/_formulario_entidad.html' %}
+        {% csrf_token %}
+        <div class="mb-3">
+            <label class="form-label small fw-semibold" for="id_tipo">Tipo de movimiento</label>
+            <select name="tipo" id="id_tipo" class="form-select" required>
+                {% for valor, etiqueta in tipos %}
+                <option value="{{ valor }}" {% if datos.tipo == valor %}selected{% endif %}>{{ etiqueta }}</option>
+                {% endfor %}
+            </select>
+            {% if errores.tipo %}<div class="text-danger small">{{ errores.tipo }}</div>{% endif %}
+        </div>
+        <div class="mb-3">
+            <label class="form-label small fw-semibold" for="id_producto">Producto</label>
+            <select name="producto" id="id_producto" class="form-select" required>
+                <option value="">Selecciona un producto</option>
+                {% for producto in productos %}
+                <option value="{{ producto.id }}"
+                        {% if datos.producto == producto.id|stringformat:"s" %}selected{% endif %}>
+                    {{ producto.nombre }} ({{ producto.sku }}) · stock {{ producto.stock_actual }}
+                </option>
+                {% endfor %}
+            </select>
+            {% if errores.producto %}<div class="text-danger small">{{ errores.producto }}</div>{% endif %}
+        </div>
+        <div class="mb-3">
+            <label class="form-label small fw-semibold" for="id_cantidad">Cantidad</label>
+            <input type="number" name="cantidad" id="id_cantidad" class="form-control"
+                   min="1" value="{{ datos.cantidad }}" required>
+            {% if errores.cantidad %}<div class="text-danger small">{{ errores.cantidad }}</div>{% endif %}
+        </div>
+        <div class="mb-3">
+            <label class="form-label small fw-semibold" for="id_fecha">Fecha</label>
+            <input type="datetime-local" name="fecha" id="id_fecha" class="form-control"
+                   value="{{ datos.fecha }}" required>
+            {% if errores.fecha %}<div class="text-danger small">{{ errores.fecha }}</div>{% endif %}
+        </div>
+        <div class="mb-3">
+            <label class="form-label small fw-semibold" for="id_observacion">Observación</label>
+            <textarea name="observacion" id="id_observacion" class="form-control" rows="3">{{ datos.observacion }}</textarea>
+        </div>
+        <div class="d-flex gap-2 mt-4">
+            <button type="submit" class="btn btn-blue">Guardar</button>
+            <a href="{% url cancelar_url_name %}" class="btn btn-outline-secondary">Cancelar</a>
+        </div>
     </form>
 </div>
 {% endblock %}

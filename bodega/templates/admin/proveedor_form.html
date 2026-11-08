@@ -3,15 +3,43 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4 class="fw-bold mb-0">{{ titulo }}</h4>
-    {% if cancelar_pk %}
-    <a href="{% url cancelar_url_name cancelar_pk %}" class="btn btn-sm btn-outline-secondary">Volver</a>
-    {% else %}
     <a href="{% url cancelar_url_name %}" class="btn btn-sm btn-outline-secondary">Volver</a>
-    {% endif %}
 </div>
 <div class="card p-4 col-lg-7">
     <form method="post" novalidate>
-        {% include 'admin/_formulario_entidad.html' %}
+        {% csrf_token %}
+        <div class="mb-3">
+            <label class="form-label small fw-semibold" for="id_rut">RUT</label>
+            <input type="text" name="rut" id="id_rut" class="form-control"
+                   value="{{ datos.rut }}" placeholder="12.345.678-9">
+            {% if errores.rut %}<div class="text-danger small">{{ errores.rut }}</div>{% endif %}
+        </div>
+        <div class="mb-3">
+            <label class="form-label small fw-semibold" for="id_razon_social">Razón social</label>
+            <input type="text" name="razon_social" id="id_razon_social" class="form-control"
+                   value="{{ datos.razon_social }}" placeholder="Empresa S.A." required>
+            {% if errores.razon_social %}<div class="text-danger small">{{ errores.razon_social }}</div>{% endif %}
+        </div>
+        <div class="mb-3">
+            <label class="form-label small fw-semibold" for="id_email">Correo electrónico</label>
+            <input type="email" name="email" id="id_email" class="form-control"
+                   value="{{ datos.email }}" placeholder="contacto@empresa.cl">
+            {% if errores.email %}<div class="text-danger small">{{ errores.email }}</div>{% endif %}
+        </div>
+        <div class="mb-3">
+            <label class="form-label small fw-semibold" for="id_telefono">Teléfono</label>
+            <input type="text" name="telefono" id="id_telefono" class="form-control"
+                   value="{{ datos.telefono }}" placeholder="+56 9 1234 5678">
+        </div>
+        <div class="mb-3 form-check">
+            <input type="checkbox" name="activo" id="id_activo" class="form-check-input"
+                   {% if datos.activo %}checked{% endif %}>
+            <label class="form-check-label small fw-semibold" for="id_activo">Proveedor activo</label>
+        </div>
+        <div class="d-flex gap-2 mt-4">
+            <button type="submit" class="btn btn-blue">Guardar</button>
+            <a href="{% url cancelar_url_name %}" class="btn btn-outline-secondary">Cancelar</a>
+        </div>
     </form>
 </div>
 {% endblock %}
